@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.3.5</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>com.bank.payment</groupId>
+    <artifactId>distributed-payment-core</artifactId>
+    <version>1.0.0</version>
+    <packaging>pom</packaging>
+    <name>Distributed Payment &amp; Settlement Engine</name>
+    <description>Enterprise-Grade Multi-Module Clean Architecture Payment Engine</description>
+
+    <modules>
+        <module>payment-domain</module>
+        <module>payment-application</module>
+        <module>payment-infrastructure</module>
+        <module>payment-api</module>
+    </modules>
+
+    <properties>
+        <java.version>21</java.version>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <spring-boot.version>3.3.5</spring-boot.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- Internal Sub-modules -->
+            <dependency>
+                <groupId>com.bank.payment</groupId>
+                <artifactId>payment-domain</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.bank.payment</groupId>
+                <artifactId>payment-application</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.bank.payment</groupId>
+                <artifactId>payment-infrastructure</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.bank.payment</groupId>
+                <artifactId>payment-api</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+</project>

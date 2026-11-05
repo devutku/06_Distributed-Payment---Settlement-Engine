@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="tr" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AegisPay | Distributed Payment & Settlement Engine</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        fintech: {
+                            900: '#0B0F19',
+                            800: '#111827',
+                            700: '#1F2937',
+                            emerald: '#10B981',
+                            blue: '#3B82F6',
+                            purple: '#8B5CF6',
+                            amber: '#F59E0B',
+                            rose: '#F43F5E'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #07090E; }
+        .code-font { font-family: 'JetBrains Mono', monospace; }
+        .glass-card {
+            background: rgba(17, 24, 39, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+    </style>
+</head>
+<body class="text-slate-100 min-h-screen flex flex-col">
+
+    <!-- Navbar -->
+    <header class="border-b border-slate-800 bg-[#0B0F19]/90 sticky top-0 z-50 backdrop-blur">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-blue-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                    <i class="fa-solid fa-vault text-white text-lg"></i>
+                </div>
+                <div>
+                    <span class="text-lg font-extrabold tracking-tight bg-gradient-to-r from-emerald-400 via-teal-300 to-blue-500 bg-clip-text text-transparent">
+                        AegisPay Engine
+                    </span>
+                    <span class="text-xs text-slate-400 block -mt-1 font-mono">Clean Architecture &bull; Hexagonal</span>
+                </div>
+            </div>
+
+            <!-- Badges -->
+            <div class="hidden md:flex items-center space-x-2 text-xs">
+                <span class="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5 font-medium">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Engine Online
+                </span>
+                <span class="px-2.5 py-1 rounded-full bg-slate-800 text-slate-300 border border-slate-700 font-mono">
+                    Java 21 &bull; Spring Boot 3.3
+                </span>
+                <span class="px-2.5 py-1 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20 font-mono">
+                    Kafka + Redis + Postgres
+                </span>
+            </div>
+
+            <div class="flex items-center space-x-3">
+                <a href="/actuator/prometheus" target="_blank" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 flex items-center gap-1.5 transition">
+                    <i class="fa-solid fa-chart-line text-emerald-400"></i> Prometheus
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 space-y-8">
+
+        <!-- Top Overview: Accounts -->
+        <section>
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-bold flex items-center gap-2">
+                    <i class="fa-solid fa-wallet text-emerald-400"></i> Banka Hesapları ve Canlı Bakiyeler
+                </h2>
+                <div class="flex items-center gap-2">
+                    <button onclick="fetchAccounts()" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 flex items-center gap-1 transition">
+                        <i class="fa-solid fa-arrows-rotate"></i> Yenile
+                    </button>
+                    <button onclick="resetBalances()" class="text-xs px-3 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 flex items-center gap-1 transition">
+                        <i class="fa-solid fa-rotate-left"></i> Bakiyeleri Sıfırla
+                    </button>
+                </div>
+            </div>
+
+            <div id="accountsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- Dynamically Populated -->
+            </div>
+        </section>
+
+        <!-- Main Operations Grid (Transfer & Concurrency Simulator) -->
+        <section class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+
+            <!-- Card 1: Idempotent Payment Transfer (5 Cols) -->
+            <div class="lg:col-span-5 glass-card rounded-2xl p-6 shadow-xl space-y-5">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+                    <div>
+                        <h3 class="font-bold text-lg text-slate-100 flex items-center gap-2">
+                            <i class="fa-solid fa-paper-plane text-blue-400"></i> Anlık Para Transferi
+                        </h3>
+                        <p class="text-xs text-slate-400 mt-0.5">Redis + DB Idempotency Key Garantili</p>
+                    </div>
+                    <span class="text-xs font-mono px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                        @Idempotent
+                    </span>
+                </div>
+
+                <div class="space-y-4 text-sm">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Kaynak Hesap (Gönderen)</label>
+                        <select id="transferSource" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-blue-500"></select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Hedef Hesap (Alıcı)</label>
+                        <select id="transferTarget" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-blue-500"></select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Transfer Tutarı (₺)</label>
+                        <div class="relative">
+                            <span class="absolute left-3 top-2 text-slate-500 font-mono">₺</span>
+                            <input id="transferAmount" type="number" step="0.01" value="250.00" class="w-full bg-slate-900 border border-slate-700 rounded-lg pl-8 pr-3 py-2 text-slate-200 focus:outline-none focus:border-blue-500 code-font">
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                            <label class="text-xs font-medium text-slate-300">Idempotency-Key Header</label>
+                            <button onclick="generateNewKey()" class="text-[11px] text-blue-400 hover:text-blue-300 flex items-center gap-1">
+                                <i class="fa-solid fa-dice"></i> Yeni Anahtar Üret
+                            </button>
+                        </div>
+                        <input id="idempotencyKey" type="text" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs code-font text-emerald-400 focus:outline-none focus:border-emerald-500">
+                        <span class="text-[11px] text-slate-500 mt-1 block">
+                            💡 Aynı anahtarla 2 kez gönderildiğinde mükerrer çekim engellenir, önbellekteki yanıt döner!
+                        </span>
+                    </div>
+
+                    <button id="btnTransfer" onclick="executeTransfer()" class="w-full py-2.5 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold rounded-xl shadow-lg shadow-blue-500/20 transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-lock text-sm"></i> Transferi Gerçekleştir
+                    </button>
+                </div>
+
+                <!-- Transfer Result Box -->
+                <div id="transferResult" class="hidden rounded-xl p-4 border text-xs space-y-2"></div>
+            </div>
+
+            <!-- Card 2: Concurrency Stress Simulator (7 Cols) -->
+            <div class="lg:col-span-7 glass-card rounded-2xl p-6 shadow-xl space-y-5">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+                    <div>
+                        <h3 class="font-bold text-lg text-slate-100 flex items-center gap-2">
+                            <i class="fa-solid fa-bolt text-amber-400"></i> Eşzamanlılık &amp; Race Condition Simülatörü
+                        </h3>
+                        <p class="text-xs text-slate-400 mt-0.5">
+                            PostgreSQL <code class="text-amber-300 font-mono">PESSIMISTIC_WRITE</code> + Deterministik Kilit Sırası
+                        </p>
+                    </div>
+                    <span class="text-xs font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                        Sıfır Eksi Bakiye
+                    </span>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Hedef Hesap</label>
+                        <select id="simTarget" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200"></select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Paralel Thread Sayısı</label>
+                        <input id="simCount" type="number" min="2" max="50" value="10" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs code-font text-slate-200">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Çekim / Thread (₺)</label>
+                        <input id="simAmount" type="number" step="0.01" value="100.00" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs code-font text-slate-200">
+                    </div>
+                </div>
+
+                <div class="p-3 bg-slate-900/80 rounded-xl border border-slate-800 text-xs text-slate-300 space-y-1">
+                    <p class="font-medium text-amber-400 flex items-center gap-1.5">
+                        <i class="fa-solid fa-circle-info"></i> Senaryo Detayı:
+                    </p>
+                    <p>Charlie hesabında sadece <strong>250.00 TL</strong> var. 10 farklı thread aynı nanosaniyede <strong>100.00 TL</strong> çekmeye çalışır (İstenen toplam: 1,000 TL).</p>
+                    <p class="text-emerald-400 font-medium">&check; Pessimistic Lock sayesinde: Tam olarak 2 istek başarılı olur, 8 istek engellenir. Bakiye asla eksiye düşmez (Tam 50.00 TL kalır).</p>
+                </div>
+
+                <button id="btnSimulation" onclick="runSimulation()" class="w-full py-2.5 px-4 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-semibold rounded-xl shadow-lg shadow-amber-500/20 transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-play"></i> 10 Paralel Thread'i Aynı Anda Ateşle
+                </button>
+
+                <!-- Simulation Result Dashboard -->
+                <div id="simResult" class="hidden rounded-xl p-4 bg-slate-900/90 border border-slate-800 space-y-3">
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+                        <div class="p-2.5 rounded-lg bg-slate-800">
+                            <span class="text-[11px] text-slate-400 block">Toplam İstek</span>
+                            <span id="resTotal" class="text-base font-bold code-font text-white">0</span>
+                        </div>
+                        <div class="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                            <span class="text-[11px] text-emerald-400 block">Başarılı</span>
+                            <span id="resSuccess" class="text-base font-bold code-font text-emerald-400">0</span>
+                        </div>
+                        <div class="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20">
+                            <span class="text-[11px] text-rose-400 block">Engellenen (Korumalı)</span>
+                            <span id="resFailed" class="text-base font-bold code-font text-rose-400">0</span>
+                        </div>
+                        <div class="p-2.5 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                            <span class="text-[11px] text-blue-400 block">Çalışma Süresi</span>
+                            <span id="resDuration" class="text-base font-bold code-font text-blue-400">0 ms</span>
+                        </div>
+                    </div>
+
+                    <div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-xs font-mono max-h-36 overflow-y-auto space-y-1" id="simThreadLogs">
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Bottom Grid: Double-Entry Ledger & Transactional Outbox / Kafka Monitor -->
+        <section class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+
+            <!-- Ledger (Double-Entry Bookkeeping Statement) -->
+            <div class="lg:col-span-6 glass-card rounded-2xl p-6 shadow-xl space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                    <h3 class="font-bold text-lg text-slate-100 flex items-center gap-2">
+                        <i class="fa-solid fa-receipt text-teal-400"></i> Çift Taraflı Ekstre (Double-Entry Ledger)
+                    </h3>
+                    <select id="ledgerAccountSelect" onchange="loadStatement()" class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-200">
+                    </select>
+                </div>
+                <p class="text-xs text-slate-400">Denetlenebilir ve değiştirilemez bakiye hareketleri (Her transferde Borç + Alacak).</p>
+
+                <div class="overflow-x-auto max-h-72 overflow-y-auto">
+                    <table class="w-full text-xs text-left">
+                        <thead class="text-slate-400 uppercase bg-slate-900/80 sticky top-0 font-mono text-[10px]">
+                            <tr>
+                                <th class="p-2">Tip</th>
+                                <th class="p-2">Tutar</th>
+                                <th class="p-2">Son Bakiye</th>
+                                <th class="p-2">Açıklama</th>
+                                <th class="p-2">Zaman</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ledgerTableBody" class="divide-y divide-slate-800 code-font">
+                            <tr><td colspan="5" class="p-3 text-center text-slate-500">Ekstreyi görüntülemek için bir hesap seçin</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Transactional Outbox & Kafka DLQ Monitor -->
+            <div class="lg:col-span-6 glass-card rounded-2xl p-6 shadow-xl space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                    <div class="flex items-center gap-2">
+                        <h3 class="font-bold text-lg text-slate-100 flex items-center gap-2">
+                            <i class="fa-solid fa-arrows-split-up-and-left text-purple-400"></i> Transactional Outbox &amp; Kafka
+                        </h3>
+                    </div>
+                    <button onclick="publishOutboxNow()" class="text-xs px-2.5 py-1 rounded bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30 transition">
+                        <i class="fa-solid fa-cloud-arrow-up"></i> Outbox Publisher Tetikle
+                    </button>
+                </div>
+                <p class="text-xs text-slate-400">Dual-Write çözümü: PostgreSQL Outbox tablosu &rarr; Kafka <code class="text-purple-300">transfer-events</code> topic.</p>
+
+                <div class="space-y-2 max-h-72 overflow-y-auto" id="outboxEventsList">
+                    <!-- Dynamic outbox entries -->
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-800 py-4 text-center text-xs text-slate-500 font-mono">
+        AegisPay Architecture &bull; Clean Architecture Multi-Module Showcase &bull; 2026
+    </footer>
+
+    <!-- Frontend Script -->
+    <script>
+        let accounts = [];
+
+        function generateUUID() {
+            return 'tx-' + 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+
+        function generateNewKey() {
+            document.getElementById('idempotencyKey').value = generateUUID();
+        }
+
+        async function fetchAccounts() {
+            try {
+                const res = await fetch('/api/v1/accounts');
+                accounts = await res.json();
+                renderAccounts();
+                populateDropdowns();
+            } catch (err) {
+                console.error("Hesaplar yüklenemedi", err);
+            }
+        }
+
+        function renderAccounts() {
+            const grid = document.getElementById('accountsGrid');
+            grid.innerHTML = accounts.map(acc => {
+                const isCharlie = acc.customerNumber.includes('Charlie');
+                return `
+                    <div class="glass-card rounded-xl p-4 relative overflow-hidden group hover:border-slate-600 transition">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-semibold text-slate-300">${acc.customerNumber}</span>
+                            <span class="text-[10px] px-2 py-0.5 rounded-full ${isCharlie ? 'bg-amber-500/20 text-amber-300' : 'bg-emerald-500/20 text-emerald-300'} font-mono">
+                                ${acc.status}
+                            </span>
+                        </div>
+                        <div class="text-xl font-bold font-mono ${isCharlie ? 'text-amber-400' : 'text-emerald-400'}">
+                            ₺${Number(acc.balance).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </div>
+                        <div class="text-[10px] text-slate-500 font-mono mt-2 truncate">
+                            ID: ${acc.accountId}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function populateDropdowns() {
+            const src = document.getElementById('transferSource');
+            const tgt = document.getElementById('transferTarget');
+            const simTgt = document.getElementById('simTarget');
+            const ledgerSel = document.getElementById('ledgerAccountSelect');
+
+            const options = accounts.map(a => `<option value="${a.accountId}">${a.customerNumber} (₺${Number(a.balance).toFixed(2)})</option>`).join('');
+            src.innerHTML = options;
+            tgt.innerHTML = options;
+            simTgt.innerHTML = options;
+            ledgerSel.innerHTML = options;
+
+            if (accounts.length > 1) {
+                tgt.selectedIndex = 1;
+                simTgt.selectedIndex = 1;
+            }
+        }
+
+        async function resetBalances() {
+            try {
+                await fetch('/api/v1/accounts/reset', { method: 'POST' });
+                await fetchAccounts();
+                await loadStatement();
+                await fetchOutbox();
+            } catch (err) {
+                alert("Sıfırlama başarısız: " + err.message);
+            }
+        }
+
+        async function executeTransfer() {
+            const btn = document.getElementById('btnTransfer');
+            const resultBox = document.getElementById('transferResult');
+            const sourceId = document.getElementById('transferSource').value;
+            const targetId = document.getElementById('transferTarget').value;
+            const amount = parseFloat(document.getElementById('transferAmount').value);
+            const key = document.getElementById('idempotencyKey').value;
+
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> İşleniyor...`;
+
+            try {
+                const res = await fetch('/api/v1/transfers', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Idempotency-Key': key
+                    },
+                    body: JSON.stringify({
+                        sourceAccountId: sourceId,
+                        targetAccountId: targetId,
+                        amount: amount,
+                        currency: 'TRY',
+                        description: "AegisPay Konsol Transferi"
+                    })
+                });
+
+                const data = await res.json();
+                resultBox.classList.remove('hidden');
+
+                if (res.ok) {
+                    const replayTag = data.idempotentReplay ?
+                        `<span class="px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 font-semibold">⚡ IDEMPOTENCY CACHE REPLAY (Sıfır Çift Çekim)</span>` :
+                        `<span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-semibold">&check; YENİ İŞLEM COMMITTED</span>`;
+
+                    resultBox.className = "rounded-xl p-4 bg-emerald-950/40 border border-emerald-500/30 text-xs space-y-1.5 text-emerald-200";
+                    resultBox.innerHTML = `
+                        <div class="flex items-center justify-between">
+                            <strong>${data.message}</strong>
+                            ${replayTag}
+                        </div>
+                        <div class="font-mono text-[11px] text-slate-300">
+                            TxID: ${data.transferId} | Tutar: ₺${data.amount} | Durum: ${data.status}
+                        </div>
+                    `;
+                } else {
+                    resultBox.className = "rounded-xl p-4 bg-rose-950/40 border border-rose-500/30 text-xs space-y-1.5 text-rose-200";
+                    resultBox.innerHTML = `
+                        <div class="font-bold flex items-center gap-1.5">
+                            <i class="fa-solid fa-triangle-exclamation text-rose-400"></i> ${data.title || 'İşlem Reddedildi'} (${data.status})
+                        </div>
+                        <p>${data.detail || 'Bilinmeyen hata'}</p>
+                    `;
+                }
+
+                await fetchAccounts();
+                await loadStatement();
+                await fetchOutbox();
+            } catch (err) {
+                resultBox.classList.remove('hidden');
+                resultBox.className = "rounded-xl p-4 bg-rose-950/40 border border-rose-500/30 text-xs text-rose-200";
+                resultBox.innerHTML = `Hata: ${err.message}`;
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<i class="fa-solid fa-lock text-sm"></i> Transferi Gerçekleştir`;
+            }
+        }
+
+        async function runSimulation() {
+            const btn = document.getElementById('btnSimulation');
+            const simResult = document.getElementById('simResult');
+            const charlie = accounts.find(a => a.customerNumber.includes('Charlie'));
+            const targetId = document.getElementById('simTarget').value;
+            const count = parseInt(document.getElementById('simCount').value);
+            const amount = parseFloat(document.getElementById('simAmount').value);
+
+            if (!charlie) {
+                alert("Charlie hesabı bulunamadı.");
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Paralel Thread'ler Çalışıyor...`;
+
+            try {
+                const res = await fetch('/api/v1/simulation/concurrency', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sourceAccountId: charlie.accountId,
+                        targetAccountId: targetId,
+                        concurrencyCount: count,
+                        amountPerTransfer: amount
+                    })
+                });
+
+                const data = await res.json();
+                simResult.classList.remove('hidden');
+
+                document.getElementById('resTotal').innerText = data.totalRequests;
+                document.getElementById('resSuccess').innerText = data.successfulRequests;
+                document.getElementById('resFailed').innerText = data.failedRequests;
+                document.getElementById('resDuration').innerText = data.executionDurationMs + ' ms';
+
+                const logsBox = document.getElementById('simThreadLogs');
+                logsBox.innerHTML = data.threadLogs.map(log => {
+                    const isSucc = log.includes('SUCCESS');
+                    return `<div class="${isSucc ? 'text-emerald-400' : 'text-rose-400'}">${log}</div>`;
+                }).join('');
+
+                await fetchAccounts();
+                await loadStatement();
+                await fetchOutbox();
+            } catch (err) {
+                alert("Simülasyon hatası: " + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<i class="fa-solid fa-play"></i> 10 Paralel Thread'i Aynı Anda Ateşle`;
+            }
+        }
+
+        async function loadStatement() {
+            const sel = document.getElementById('ledgerAccountSelect');
+            if (!sel.value) return;
+
+            try {
+                const res = await fetch(`/api/v1/accounts/${sel.value}/statement`);
+                const data = await res.json();
+                const tbody = document.getElementById('ledgerTableBody');
+
+                if (!data.items || data.items.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="5" class="p-3 text-center text-slate-500">Bu hesap için henüz hareket bulunmuyor.</td></tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = data.items.map(e => {
+                    const isDebit = e.type === 'DEBIT';
+                    return `
+                        <tr class="hover:bg-slate-800/40 transition">
+                            <td class="p-2">
+                                <span class="px-1.5 py-0.5 rounded text-[10px] ${isDebit ? 'bg-rose-500/20 text-rose-300' : 'bg-emerald-500/20 text-emerald-300'} font-bold">
+                                    ${e.type}
+                                </span>
+                            </td>
+                            <td class="p-2 font-bold ${isDebit ? 'text-rose-400' : 'text-emerald-400'}">
+                                ${isDebit ? '-' : '+'}₺${Number(e.amount).toFixed(2)}
+                            </td>
+                            <td class="p-2 text-slate-300 font-mono">₺${Number(e.balanceAfter).toFixed(2)}</td>
+                            <td class="p-2 text-slate-400 truncate max-w-[140px]" title="${e.description}">${e.description}</td>
+                            <td class="p-2 text-slate-500 text-[10px]">${new Date(e.createdAt).toLocaleTimeString()}</td>
+                        </tr>
+                    `;
+                }).join('');
+            } catch (err) {
+                console.error("Ekstre yükleme hatası", err);
+            }
+        }
+
+        async function fetchOutbox() {
+            try {
+                const res = await fetch('/api/v1/outbox');
+                const events = await res.json();
+                const list = document.getElementById('outboxEventsList');
+
+                if (events.length === 0) {
+                    list.innerHTML = `<div class="text-center text-slate-500 text-xs py-4">Henüz Outbox kaydı yok.</div>`;
+                    return;
+                }
+
+                list.innerHTML = events.slice(0, 8).map(ev => {
+                    const isPub = ev.status === 'PUBLISHED';
+                    return `
+                        <div class="p-2.5 rounded-lg bg-slate-900/90 border border-slate-800 flex items-center justify-between text-xs font-mono">
+                            <div>
+                                <span class="text-purple-400 font-bold">${ev.eventType}</span>
+                                <span class="text-slate-500 block text-[10px]">ID: ${ev.id.substring(0, 18)}...</span>
+                            </div>
+                            <span class="px-2 py-0.5 rounded text-[10px] ${isPub ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'}">
+                                ${ev.status}
+                            </span>
+                        </div>
+                    `;
+                }).join('');
+            } catch (err) {
+                console.error("Outbox listeleme hatası", err);
+            }
+        }
+
+        async function publishOutboxNow() {
+            await fetch('/api/v1/outbox/publish-now', { method: 'POST' });
+            await fetchOutbox();
+        }
+
+        // Initialize
+        generateNewKey();
+        fetchAccounts().then(() => {
+            loadStatement();
+            fetchOutbox();
+        });
+    </script>
+</body>
+</html>
