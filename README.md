@@ -325,6 +325,6 @@ Floating-point sayı sistemleri (IEEE 754 standardı) ondalık sayıları ikilik
 ---
 
 ## 👨‍💻 Yazar & Lisans
-**Hilmi Kemal Yıldız** &bull; [GitHub Profili](https://github.com/devutku) &bull; 2026
+**Utku Berki Baysal** &bull; [GitHub Profili](https://github.com/devutku) &bull; 2026
 
 *Bu proje, kurumsal fintech ve bankacılık teknik mülakatlarında kıdemli mimari yetkinlikleri kanıtlamak amacıyla geliştirilmiş açık kaynaklı bir referans mimaridir.*
