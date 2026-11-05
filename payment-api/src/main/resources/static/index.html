@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AegisPay | Distributed Payment & Settlement Engine</title>
+    <title>AegisPay | Distributed Payment &amp; Settlement Engine</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
@@ -14,14 +14,12 @@
                 extend: {
                     colors: {
                         fintech: {
-                            900: '#0B0F19',
-                            800: '#111827',
-                            700: '#1F2937',
-                            emerald: '#10B981',
-                            blue: '#3B82F6',
-                            purple: '#8B5CF6',
-                            amber: '#F59E0B',
-                            rose: '#F43F5E'
+                            base: '#090D16',
+                            card: '#0F1626',
+                            cardBorder: 'rgba(30, 41, 59, 0.85)',
+                            input: '#0A0F1D',
+                            accent: '#6366F1',
+                            accentHover: '#4F46E5',
                         }
                     }
                 }
@@ -29,49 +27,97 @@
         }
     </script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #07090E; }
-        .code-font { font-family: 'JetBrains Mono', monospace; }
-        .glass-card {
-            background: rgba(17, 24, 39, 0.75);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+        
+        body { 
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif; 
+            background-color: #090D16; 
+            color: #F8FAFC;
+        }
+
+        .code-font { 
+            font-family: 'JetBrains Mono', monospace; 
+        }
+
+        .fintech-card {
+            background-color: rgba(15, 22, 38, 0.85);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(30, 41, 59, 0.85);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+        }
+
+        .fintech-input {
+            background-color: #0A0F1D;
+            border: 1px solid rgba(51, 65, 85, 0.7);
+            border-radius: 0.75rem;
+            color: #F8FAFC;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .fintech-input:focus {
+            outline: none;
+            border-color: #6366F1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18);
+        }
+
+        /* Custom subtle scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #090D16;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1E293B;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #334155;
         }
     </style>
 </head>
-<body class="text-slate-100 min-h-screen flex flex-col">
+<body class="min-h-screen flex flex-col antialiased selection:bg-indigo-500 selection:text-white">
 
-    <!-- Navbar -->
-    <header class="border-b border-slate-800 bg-[#0B0F19]/90 sticky top-0 z-50 backdrop-blur">
+    <!-- Header Navbar -->
+    <header class="border-b border-slate-800/80 bg-[#090D16]/90 sticky top-0 z-50 backdrop-blur-md">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-            <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-blue-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
-                    <i class="fa-solid fa-vault text-white text-lg"></i>
+            <div class="flex items-center space-x-3.5">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 via-purple-500 to-blue-500 flex items-center justify-center shadow-lg shadow-indigo-500/25">
+                    <i class="fa-solid fa-vault text-white text-base"></i>
                 </div>
                 <div>
-                    <span class="text-lg font-extrabold tracking-tight bg-gradient-to-r from-emerald-400 via-teal-300 to-blue-500 bg-clip-text text-transparent">
-                        AegisPay Engine
-                    </span>
-                    <span class="text-xs text-slate-400 block -mt-1 font-mono">Clean Architecture &bull; Hexagonal</span>
+                    <div class="flex items-center gap-2">
+                        <span class="text-lg font-bold tracking-tight text-white">
+                            AegisPay Engine
+                        </span>
+                        <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-medium">
+                            v1.0.0
+                        </span>
+                    </div>
+                    <span class="text-xs text-slate-400 block -mt-0.5">Distributed Payment &amp; Settlement Architecture</span>
                 </div>
             </div>
 
-            <!-- Badges -->
+            <!-- Engine Metrics & Status Badges -->
             <div class="hidden md:flex items-center space-x-2 text-xs">
                 <span class="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5 font-medium">
-                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Engine Online
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Docker Engine Online
                 </span>
-                <span class="px-2.5 py-1 rounded-full bg-slate-800 text-slate-300 border border-slate-700 font-mono">
+                <span class="px-2.5 py-1 rounded-full bg-slate-800/80 text-slate-300 border border-slate-700/60 font-mono text-[11px]">
                     Java 21 &bull; Spring Boot 3.3
                 </span>
-                <span class="px-2.5 py-1 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20 font-mono">
+                <span class="px-2.5 py-1 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20 font-mono text-[11px]">
                     Kafka + Redis + Postgres
                 </span>
             </div>
 
-            <div class="flex items-center space-x-3">
-                <a href="/actuator/prometheus" target="_blank" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 flex items-center gap-1.5 transition">
-                    <i class="fa-solid fa-chart-line text-emerald-400"></i> Prometheus
+            <div class="flex items-center space-x-2.5">
+                <a href="/actuator/prometheus" target="_blank" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 flex items-center gap-1.5 transition">
+                    <i class="fa-solid fa-chart-line text-indigo-400"></i> Prometheus
+                </a>
+                <a href="http://localhost:3000" target="_blank" class="text-xs px-3 py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 flex items-center gap-1.5 transition">
+                    <i class="fa-solid fa-gauge-high"></i> Grafana
                 </a>
             </div>
         </div>
@@ -80,79 +126,88 @@
     <!-- Main Container -->
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 space-y-8">
 
-        <!-- Top Overview: Accounts -->
+        <!-- Top Overview: Accounts Cards -->
         <section>
             <div class="flex items-center justify-between mb-4">
-                <h2 class="text-xl font-bold flex items-center gap-2">
-                    <i class="fa-solid fa-wallet text-emerald-400"></i> Banka Hesapları ve Canlı Bakiyeler
-                </h2>
+                <div>
+                    <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-wallet text-indigo-400"></i> Canlı Banka Hesapları
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-0.5">Yüksek hacimli transferler ve anlık bakiye hareketleri</p>
+                </div>
                 <div class="flex items-center gap-2">
-                    <button onclick="fetchAccounts()" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 flex items-center gap-1 transition">
+                    <button onclick="fetchAccounts()" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 flex items-center gap-1.5 transition">
                         <i class="fa-solid fa-arrows-rotate"></i> Yenile
                     </button>
-                    <button onclick="resetBalances()" class="text-xs px-3 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 flex items-center gap-1 transition">
+                    <button onclick="resetBalances()" class="text-xs px-3 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 flex items-center gap-1.5 transition">
                         <i class="fa-solid fa-rotate-left"></i> Bakiyeleri Sıfırla
                     </button>
                 </div>
             </div>
 
             <div id="accountsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <!-- Dynamically Populated -->
+                <!-- Dynamically Populated with Fintech Typography -->
             </div>
         </section>
 
-        <!-- Main Operations Grid (Transfer & Concurrency Simulator) -->
+        <!-- Main Operations Grid: Transfer & Concurrency Simulator -->
         <section class="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
             <!-- Card 1: Idempotent Payment Transfer (5 Cols) -->
-            <div class="lg:col-span-5 glass-card rounded-2xl p-6 shadow-xl space-y-5">
-                <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+            <div class="lg:col-span-5 fintech-card rounded-2xl p-6 space-y-5">
+                <div class="flex items-center justify-between border-b border-slate-800/80 pb-4">
                     <div>
-                        <h3 class="font-bold text-lg text-slate-100 flex items-center gap-2">
-                            <i class="fa-solid fa-paper-plane text-blue-400"></i> Anlık Para Transferi
+                        <h3 class="font-bold text-base text-white flex items-center gap-2">
+                            <i class="fa-solid fa-paper-plane text-indigo-400"></i> Anlık Para Transferi
                         </h3>
-                        <p class="text-xs text-slate-400 mt-0.5">Redis + DB Idempotency Key Garantili</p>
+                        <p class="text-xs text-slate-400 mt-0.5">Two-Tier Redis Fast-Path &amp; DB Idempotency</p>
                     </div>
-                    <span class="text-xs font-mono px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                    <span class="text-[11px] font-mono px-2.5 py-0.5 rounded-md bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-medium">
                         @Idempotent
                     </span>
                 </div>
 
                 <div class="space-y-4 text-sm">
                     <div>
-                        <label class="block text-xs font-medium text-slate-300 mb-1">Kaynak Hesap (Gönderen)</label>
-                        <select id="transferSource" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-blue-500"></select>
+                        <label class="block text-xs font-medium text-slate-300 mb-1.5">Kaynak Hesap (Gönderen)</label>
+                        <select id="transferSource" class="fintech-input w-full px-3 py-2 text-xs"></select>
                     </div>
 
                     <div>
-                        <label class="block text-xs font-medium text-slate-300 mb-1">Hedef Hesap (Alıcı)</label>
-                        <select id="transferTarget" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-blue-500"></select>
+                        <label class="block text-xs font-medium text-slate-300 mb-1.5">Hedef Hesap (Alıcı)</label>
+                        <select id="transferTarget" class="fintech-input w-full px-3 py-2 text-xs"></select>
                     </div>
 
                     <div>
-                        <label class="block text-xs font-medium text-slate-300 mb-1">Transfer Tutarı (₺)</label>
+                        <label class="block text-xs font-medium text-slate-300 mb-1.5">Transfer Tutarı (₺)</label>
                         <div class="relative">
-                            <span class="absolute left-3 top-2 text-slate-500 font-mono">₺</span>
-                            <input id="transferAmount" type="number" step="0.01" value="250.00" class="w-full bg-slate-900 border border-slate-700 rounded-lg pl-8 pr-3 py-2 text-slate-200 focus:outline-none focus:border-blue-500 code-font">
+                            <span class="absolute left-3.5 top-2.5 text-slate-400 font-mono text-sm">₺</span>
+                            <input id="transferAmount" type="number" step="0.01" value="250.00" class="fintech-input w-full pl-8 pr-3.5 py-2 text-sm code-font text-white font-medium">
                         </div>
                     </div>
 
                     <div>
-                        <div class="flex items-center justify-between mb-1">
+                        <div class="flex items-center justify-between mb-1.5">
                             <label class="text-xs font-medium text-slate-300">Idempotency-Key Header</label>
-                            <button onclick="generateNewKey()" class="text-[11px] text-blue-400 hover:text-blue-300 flex items-center gap-1">
-                                <i class="fa-solid fa-dice"></i> Yeni Anahtar Üret
+                            <button onclick="generateNewKey()" class="text-[11px] text-indigo-400 hover:text-indigo-300 flex items-center gap-1 transition">
+                                <i class="fa-solid fa-dice"></i> Yeni Anahtar
                             </button>
                         </div>
-                        <input id="idempotencyKey" type="text" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs code-font text-emerald-400 focus:outline-none focus:border-emerald-500">
-                        <span class="text-[11px] text-slate-500 mt-1 block">
-                            💡 Aynı anahtarla 2 kez gönderildiğinde mükerrer çekim engellenir, önbellekteki yanıt döner!
+                        <input id="idempotencyKey" type="text" class="fintech-input w-full px-3 py-2 text-xs code-font text-indigo-300">
+                        <span class="text-[11px] text-slate-400 mt-1 block">
+                            💡 Aynı anahtarla 2. kez gönderildiğinde hesap iki kez borçlandırılmaz, önbellekteki yanıt döner!
                         </span>
                     </div>
 
-                    <button id="btnTransfer" onclick="executeTransfer()" class="w-full py-2.5 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold rounded-xl shadow-lg shadow-blue-500/20 transition flex items-center justify-center gap-2">
-                        <i class="fa-solid fa-lock text-sm"></i> Transferi Gerçekleştir
-                    </button>
+                    <!-- Action Buttons -->
+                    <div class="flex gap-2.5 pt-1">
+                        <button id="btnTransfer" onclick="executeTransfer()" class="flex-1 py-2.5 px-4 bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-semibold rounded-xl shadow-lg shadow-indigo-500/25 transition-all duration-200 flex items-center justify-center gap-2 text-xs tracking-wide">
+                            <i class="fa-solid fa-shield-halved"></i> Transferi Gönder
+                        </button>
+                        <button onclick="executeTransfer()" class="py-2.5 px-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium rounded-xl border border-slate-700/60 text-xs transition" title="Aynı anahtarla tekrar dene (Idempotency Replay Testi)">
+                            <i class="fa-solid fa-repeat"></i> Tekrar Gönder
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Transfer Result Box -->
@@ -160,88 +215,98 @@
             </div>
 
             <!-- Card 2: Concurrency Stress Simulator (7 Cols) -->
-            <div class="lg:col-span-7 glass-card rounded-2xl p-6 shadow-xl space-y-5">
-                <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+            <div class="lg:col-span-7 fintech-card rounded-2xl p-6 space-y-5">
+                <div class="flex items-center justify-between border-b border-slate-800/80 pb-4">
                     <div>
-                        <h3 class="font-bold text-lg text-slate-100 flex items-center gap-2">
-                            <i class="fa-solid fa-bolt text-amber-400"></i> Eşzamanlılık &amp; Race Condition Simülatörü
+                        <h3 class="font-bold text-base text-white flex items-center gap-2">
+                            <i class="fa-solid fa-bolt text-indigo-400"></i> Eşzamanlılık &amp; Race Condition Simülatörü
                         </h3>
                         <p class="text-xs text-slate-400 mt-0.5">
-                            PostgreSQL <code class="text-amber-300 font-mono">PESSIMISTIC_WRITE</code> + Deterministik Kilit Sırası
+                            PostgreSQL <code class="text-indigo-300 font-mono text-[11px]">PESSIMISTIC_WRITE</code> + Deterministik Kilit Sırası
                         </p>
                     </div>
-                    <span class="text-xs font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                        Sıfır Eksi Bakiye
+                    <span class="text-[11px] font-mono px-2.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">
+                        Sıfır Eksi Bakiye Garantisi
                     </span>
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
                     <div>
-                        <label class="block text-xs font-medium text-slate-300 mb-1">Hedef Hesap</label>
-                        <select id="simTarget" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200"></select>
+                        <label class="block text-xs font-medium text-slate-300 mb-1.5">Kaynak (Charlie) &rarr; Hedef</label>
+                        <select id="simTarget" class="fintech-input w-full px-2.5 py-2 text-xs"></select>
                     </div>
                     <div>
-                        <label class="block text-xs font-medium text-slate-300 mb-1">Paralel Thread Sayısı</label>
-                        <input id="simCount" type="number" min="2" max="50" value="10" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs code-font text-slate-200">
+                        <label class="block text-xs font-medium text-slate-300 mb-1.5">Eşzamanlı Thread Sayısı</label>
+                        <input id="simCount" type="number" min="2" max="50" value="10" class="fintech-input w-full px-2.5 py-2 text-xs code-font text-white">
                     </div>
                     <div>
-                        <label class="block text-xs font-medium text-slate-300 mb-1">Çekim / Thread (₺)</label>
-                        <input id="simAmount" type="number" step="0.01" value="100.00" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs code-font text-slate-200">
+                        <label class="block text-xs font-medium text-slate-300 mb-1.5">Çekim / Thread (₺)</label>
+                        <input id="simAmount" type="number" step="0.01" value="100.00" class="fintech-input w-full px-2.5 py-2 text-xs code-font text-white">
                     </div>
                 </div>
 
-                <div class="p-3 bg-slate-900/80 rounded-xl border border-slate-800 text-xs text-slate-300 space-y-1">
-                    <p class="font-medium text-amber-400 flex items-center gap-1.5">
-                        <i class="fa-solid fa-circle-info"></i> Senaryo Detayı:
+                <!-- Scenario Explanation Box -->
+                <div class="p-3.5 bg-[#0A0F1D] rounded-xl border border-slate-800/80 text-xs text-slate-300 space-y-1.5">
+                    <div class="flex items-center justify-between">
+                        <span class="font-semibold text-indigo-300 flex items-center gap-1.5">
+                            <i class="fa-solid fa-microchip"></i> Stres Senaryosu:
+                        </span>
+                        <span class="text-[11px] text-slate-400 font-mono">Charlie Başlangıç Bakiyesi: ₺250,00</span>
+                    </div>
+                    <p class="text-slate-400">
+                        10 paralel thread aynı milisaniyede <strong>₺100,00</strong> çekmeye çalışır (İstenen toplam: <strong>₺1.000,00</strong>).
                     </p>
-                    <p>Charlie hesabında sadece <strong>250.00 TL</strong> var. 10 farklı thread aynı nanosaniyede <strong>100.00 TL</strong> çekmeye çalışır (İstenen toplam: 1,000 TL).</p>
-                    <p class="text-emerald-400 font-medium">&check; Pessimistic Lock sayesinde: Tam olarak 2 istek başarılı olur, 8 istek engellenir. Bakiye asla eksiye düşmez (Tam 50.00 TL kalır).</p>
+                    <p class="text-slate-200">
+                        <span class="text-emerald-400 font-semibold">&check; Beklenen Sonuç:</span> Pessimistic Row Lock sayesinde tam <strong>2 istek</strong> onaylanır, <strong>8 istek</strong> engellenir. Charlie'nin son bakiyesi eksiye düşmeden tam <strong>₺50,00</strong> kalır!
+                    </p>
                 </div>
 
-                <button id="btnSimulation" onclick="runSimulation()" class="w-full py-2.5 px-4 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-semibold rounded-xl shadow-lg shadow-amber-500/20 transition flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-play"></i> 10 Paralel Thread'i Aynı Anda Ateşle
+                <!-- Sleek Fintech Action Button -->
+                <button id="btnSimulation" onclick="runSimulation()" class="w-full py-3 px-5 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 hover:from-indigo-900 hover:to-purple-900 text-indigo-200 hover:text-white font-semibold rounded-xl border border-indigo-500/40 shadow-lg shadow-indigo-950/60 hover:shadow-indigo-500/20 transition-all duration-300 flex items-center justify-center gap-2.5 text-xs tracking-wider uppercase group">
+                    <i class="fa-solid fa-bolt text-indigo-400 group-hover:text-amber-300 transition-colors"></i>
+                    <span>10 Paralel Thread'i Aynı Anda Ateşle</span>
                 </button>
 
                 <!-- Simulation Result Dashboard -->
-                <div id="simResult" class="hidden rounded-xl p-4 bg-slate-900/90 border border-slate-800 space-y-3">
-                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
-                        <div class="p-2.5 rounded-lg bg-slate-800">
-                            <span class="text-[11px] text-slate-400 block">Toplam İstek</span>
+                <div id="simResult" class="hidden rounded-xl p-4 bg-[#0A0F1D] border border-slate-800 space-y-3">
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-center">
+                        <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800">
+                            <span class="text-[10px] text-slate-400 block uppercase tracking-wider">Toplam İstek</span>
                             <span id="resTotal" class="text-base font-bold code-font text-white">0</span>
                         </div>
                         <div class="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-                            <span class="text-[11px] text-emerald-400 block">Başarılı</span>
+                            <span class="text-[10px] text-emerald-400 block uppercase tracking-wider">Başarılı</span>
                             <span id="resSuccess" class="text-base font-bold code-font text-emerald-400">0</span>
                         </div>
                         <div class="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20">
-                            <span class="text-[11px] text-rose-400 block">Engellenen (Korumalı)</span>
+                            <span class="text-[10px] text-rose-400 block uppercase tracking-wider">Engellenen (Korumalı)</span>
                             <span id="resFailed" class="text-base font-bold code-font text-rose-400">0</span>
                         </div>
-                        <div class="p-2.5 rounded-lg bg-blue-500/10 border border-blue-500/20">
-                            <span class="text-[11px] text-blue-400 block">Çalışma Süresi</span>
-                            <span id="resDuration" class="text-base font-bold code-font text-blue-400">0 ms</span>
+                        <div class="p-2.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20">
+                            <span class="text-[10px] text-indigo-400 block uppercase tracking-wider">Gecikme (Latency)</span>
+                            <span id="resDuration" class="text-base font-bold code-font text-indigo-300">0 ms</span>
                         </div>
                     </div>
 
-                    <div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-xs font-mono max-h-36 overflow-y-auto space-y-1" id="simThreadLogs">
+                    <div class="p-2.5 rounded-lg bg-[#070A12] border border-slate-800/80 text-[11px] font-mono max-h-36 overflow-y-auto space-y-1" id="simThreadLogs">
                     </div>
                 </div>
             </div>
         </section>
 
         <!-- High-Level Payment Processing System (Gateway & Webhook Lifecycle) -->
-        <section class="glass-card rounded-2xl p-6 shadow-xl space-y-5 border border-purple-500/20">
-            <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+        <section class="fintech-card rounded-2xl p-6 space-y-5 border border-indigo-500/20">
+            <div class="flex items-center justify-between border-b border-slate-800/80 pb-4">
                 <div>
-                    <h3 class="font-bold text-lg text-slate-100 flex items-center gap-2">
-                        <i class="fa-solid fa-credit-card text-purple-400"></i> High-Level Payment Processing System (Gateway &amp; Webhook)
+                    <h3 class="font-bold text-base text-white flex items-center gap-2">
+                        <i class="fa-solid fa-credit-card text-indigo-400"></i> High-Level Payment Gateway &amp; Webhook Lifecycle
                     </h3>
                     <p class="text-xs text-slate-400 mt-0.5">
-                        Stripe / PayPal PSP &bull; Webhook Listener (<code class="text-purple-300">POST /webhooks</code>) &bull; HMAC-SHA256 &bull; Order Fulfillment
+                        Stripe / PayPal PSP &bull; Webhook Listener (<code class="text-indigo-300 font-mono">POST /webhooks</code>) &bull; HMAC-SHA256 &bull; Order Fulfillment
                     </p>
                 </div>
                 <div class="flex items-center gap-2">
-                    <span class="text-xs font-mono px-2 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                    <span class="text-[11px] font-mono px-2.5 py-0.5 rounded-md bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-medium">
                         PENDING &rarr; AUTHORIZED &rarr; CAPTURED
                     </span>
                 </div>
@@ -249,27 +314,27 @@
 
             <!-- Visual Flow Bar Matching the Architecture Diagram -->
             <div class="grid grid-cols-2 md:grid-cols-6 gap-2 text-center text-[11px] font-mono">
-                <div class="p-2 rounded-lg bg-slate-900 border border-slate-800" id="step1">
+                <div class="p-2 rounded-lg bg-[#0A0F1D] border border-slate-800 transition-all duration-300" id="step1">
                     <span class="text-blue-400 font-bold block">1. User &amp; Frontend</span>
                     <span class="text-slate-400 text-[10px]">Clicks "Pay" + Idemp-Key</span>
                 </div>
-                <div class="p-2 rounded-lg bg-slate-900 border border-slate-800" id="step2">
+                <div class="p-2 rounded-lg bg-[#0A0F1D] border border-slate-800 transition-all duration-300" id="step2">
                     <span class="text-teal-400 font-bold block">2. Payment Service</span>
                     <span class="text-slate-400 text-[10px]">Create "PENDING" DB</span>
                 </div>
-                <div class="p-2 rounded-lg bg-slate-900 border border-slate-800" id="step3">
+                <div class="p-2 rounded-lg bg-[#0A0F1D] border border-slate-800 transition-all duration-300" id="step3">
                     <span class="text-purple-400 font-bold block">3. Payment Gateway</span>
                     <span class="text-slate-400 text-[10px]">Stripe/PayPal (AUTH)</span>
                 </div>
-                <div class="p-2 rounded-lg bg-slate-900 border border-slate-800" id="step4">
+                <div class="p-2 rounded-lg bg-[#0A0F1D] border border-slate-800 transition-all duration-300" id="step4">
                     <span class="text-amber-400 font-bold block">4. Webhook Listener</span>
                     <span class="text-slate-400 text-[10px]">HMAC-SHA256 Signature</span>
                 </div>
-                <div class="p-2 rounded-lg bg-slate-900 border border-slate-800" id="step5">
+                <div class="p-2 rounded-lg bg-[#0A0F1D] border border-slate-800 transition-all duration-300" id="step5">
                     <span class="text-emerald-400 font-bold block">5. Update Ledger</span>
                     <span class="text-slate-400 text-[10px]">Record CAPTURED</span>
                 </div>
-                <div class="p-2 rounded-lg bg-slate-900 border border-slate-800" id="step6">
+                <div class="p-2 rounded-lg bg-[#0A0F1D] border border-slate-800 transition-all duration-300" id="step6">
                     <span class="text-rose-400 font-bold block">6. Order Fulfillment</span>
                     <span class="text-slate-400 text-[10px]">Kafka Outbox Trigger</span>
                 </div>
@@ -278,42 +343,42 @@
             <!-- Gateway Form Controls -->
             <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 text-sm">
                 <div>
-                    <label class="block text-xs font-medium text-slate-300 mb-1">Müşteri Hesabı</label>
-                    <select id="gwCustomer" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200"></select>
+                    <label class="block text-xs font-medium text-slate-300 mb-1.5">Müşteri Hesabı</label>
+                    <select id="gwCustomer" class="fintech-input w-full px-2.5 py-2 text-xs"></select>
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-slate-300 mb-1">Mağaza / Alıcı Hesap</label>
-                    <select id="gwMerchant" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200"></select>
+                    <label class="block text-xs font-medium text-slate-300 mb-1.5">Mağaza / Alıcı Hesap</label>
+                    <select id="gwMerchant" class="fintech-input w-full px-2.5 py-2 text-xs"></select>
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-slate-300 mb-1">Ödeme Sağlayıcı (PSP)</label>
-                    <select id="gwProvider" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 font-mono">
+                    <label class="block text-xs font-medium text-slate-300 mb-1.5">Ödeme Sağlayıcı (PSP)</label>
+                    <select id="gwProvider" class="fintech-input w-full px-2.5 py-2 text-xs font-mono">
                         <option value="STRIPE">Stripe (PaymentIntent)</option>
                         <option value="PAYPAL">PayPal (Order API)</option>
                         <option value="RAZORPAY">Razorpay</option>
                     </select>
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-slate-300 mb-1">Tutar (₺)</label>
-                    <input id="gwAmount" type="number" step="0.01" value="350.00" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs code-font text-slate-200">
+                    <label class="block text-xs font-medium text-slate-300 mb-1.5">Tutar (₺)</label>
+                    <input id="gwAmount" type="number" step="0.01" value="350.00" class="fintech-input w-full px-2.5 py-2 text-xs code-font text-white">
                 </div>
             </div>
 
             <!-- Action Buttons -->
             <div class="flex flex-wrap gap-3">
-                <button id="btnGwAuthorize" onclick="runGatewayAuthorize()" class="flex-1 py-2 px-3 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow-lg shadow-purple-500/20">
+                <button id="btnGwAuthorize" onclick="runGatewayAuthorize()" class="flex-1 py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow-lg shadow-indigo-500/20">
                     <i class="fa-solid fa-credit-card"></i> 1. Pay with Gateway (Authorize)
                 </button>
-                <button id="btnGwWebhook" onclick="runGatewayWebhook()" class="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/20" disabled>
+                <button id="btnGwWebhook" onclick="runGatewayWebhook()" class="flex-1 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/20 disabled:opacity-40 disabled:cursor-not-allowed" disabled>
                     <i class="fa-solid fa-satellite-dish"></i> 2. Simulate Webhook (Capture &amp; Settle)
                 </button>
-                <button onclick="runAutomatedGatewayFlow()" class="py-2 px-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-semibold rounded-xl text-xs transition flex items-center justify-center gap-1.5">
-                    <i class="fa-solid fa-wand-magic-sparkles"></i> Tam Otomatik Akış (1-Click E2E)
+                <button onclick="runAutomatedGatewayFlow()" class="py-2.5 px-4 bg-gradient-to-r from-slate-800 to-indigo-900 hover:from-slate-700 hover:to-indigo-800 text-white font-semibold rounded-xl text-xs transition flex items-center justify-center gap-1.5 border border-indigo-500/30">
+                    <i class="fa-solid fa-wand-magic-sparkles text-indigo-400"></i> Tam Otomatik Akış (1-Click E2E)
                 </button>
             </div>
 
             <!-- Gateway Result Box -->
-            <div id="gwResultBox" class="hidden rounded-xl p-4 bg-slate-900/90 border border-slate-800 text-xs font-mono space-y-2">
+            <div id="gwResultBox" class="hidden rounded-xl p-4 bg-[#0A0F1D] border border-slate-800 text-xs font-mono space-y-2">
             </div>
         </section>
 
@@ -321,47 +386,47 @@
         <section class="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
             <!-- Ledger (Double-Entry Bookkeeping Statement) -->
-            <div class="lg:col-span-6 glass-card rounded-2xl p-6 shadow-xl space-y-4">
-                <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-                    <h3 class="font-bold text-lg text-slate-100 flex items-center gap-2">
-                        <i class="fa-solid fa-receipt text-teal-400"></i> Çift Taraflı Ekstre (Double-Entry Ledger)
+            <div class="lg:col-span-6 fintech-card rounded-2xl p-6 space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-800/80 pb-3">
+                    <h3 class="font-bold text-base text-white flex items-center gap-2">
+                        <i class="fa-solid fa-receipt text-indigo-400"></i> Çift Taraflı Ekstre (Double-Entry Ledger)
                     </h3>
-                    <select id="ledgerAccountSelect" onchange="loadStatement()" class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-200">
+                    <select id="ledgerAccountSelect" onchange="loadStatement()" class="fintech-input px-2.5 py-1 text-xs">
                     </select>
                 </div>
-                <p class="text-xs text-slate-400">Denetlenebilir ve değiştirilemez bakiye hareketleri (Her transferde Borç + Alacak).</p>
+                <p class="text-xs text-slate-400">Denetlenebilir ve değiştirilemez bakiye hareketleri (Her transferde Borç + Alacak kaydı).</p>
 
-                <div class="overflow-x-auto max-h-72 overflow-y-auto">
+                <div class="overflow-x-auto max-h-72 overflow-y-auto rounded-xl border border-slate-800/80">
                     <table class="w-full text-xs text-left">
-                        <thead class="text-slate-400 uppercase bg-slate-900/80 sticky top-0 font-mono text-[10px]">
+                        <thead class="text-slate-400 uppercase bg-[#0A0F1D] sticky top-0 font-mono text-[10px] border-b border-slate-800">
                             <tr>
-                                <th class="p-2">Tip</th>
-                                <th class="p-2">Tutar</th>
-                                <th class="p-2">Son Bakiye</th>
-                                <th class="p-2">Açıklama</th>
-                                <th class="p-2">Zaman</th>
+                                <th class="p-2.5">Tip</th>
+                                <th class="p-2.5">Tutar</th>
+                                <th class="p-2.5">Son Bakiye</th>
+                                <th class="p-2.5">Açıklama</th>
+                                <th class="p-2.5">Zaman</th>
                             </tr>
                         </thead>
-                        <tbody id="ledgerTableBody" class="divide-y divide-slate-800 code-font">
-                            <tr><td colspan="5" class="p-3 text-center text-slate-500">Ekstreyi görüntülemek için bir hesap seçin</td></tr>
+                        <tbody id="ledgerTableBody" class="divide-y divide-slate-800/60 bg-[#0F1626]/40 code-font">
+                            <tr><td colspan="5" class="p-4 text-center text-slate-500">Ekstreyi görüntülemek için bir hesap seçin</td></tr>
                         </tbody>
                     </table>
                 </div>
             </div>
 
             <!-- Transactional Outbox & Kafka DLQ Monitor -->
-            <div class="lg:col-span-6 glass-card rounded-2xl p-6 shadow-xl space-y-4">
-                <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div class="lg:col-span-6 fintech-card rounded-2xl p-6 space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-800/80 pb-3">
                     <div class="flex items-center gap-2">
-                        <h3 class="font-bold text-lg text-slate-100 flex items-center gap-2">
+                        <h3 class="font-bold text-base text-white flex items-center gap-2">
                             <i class="fa-solid fa-arrows-split-up-and-left text-purple-400"></i> Transactional Outbox &amp; Kafka
                         </h3>
                     </div>
-                    <button onclick="publishOutboxNow()" class="text-xs px-2.5 py-1 rounded bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30 transition">
+                    <button onclick="publishOutboxNow()" class="text-xs px-2.5 py-1 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 border border-purple-500/30 transition">
                         <i class="fa-solid fa-cloud-arrow-up"></i> Outbox Publisher Tetikle
                     </button>
                 </div>
-                <p class="text-xs text-slate-400">Dual-Write çözümü: PostgreSQL Outbox tablosu &rarr; Kafka <code class="text-purple-300">transfer-events</code> topic.</p>
+                <p class="text-xs text-slate-400">Dual-Write çözümü: PostgreSQL Outbox tablosu &rarr; Kafka <code class="text-purple-300 font-mono">transfer-events</code> topic.</p>
 
                 <div class="space-y-2 max-h-72 overflow-y-auto" id="outboxEventsList">
                     <!-- Dynamic outbox entries -->
@@ -372,13 +437,44 @@
     </main>
 
     <!-- Footer -->
-    <footer class="border-t border-slate-800 py-4 text-center text-xs text-slate-500 font-mono">
+    <footer class="border-t border-slate-800/80 py-4 text-center text-xs text-slate-500 font-mono">
         AegisPay Architecture &bull; Clean Architecture Multi-Module Showcase &bull; 2026
     </footer>
 
-    <!-- Frontend Script -->
+    <!-- Frontend Script with Enhanced Fintech Typography & Formatting -->
     <script>
         let accounts = [];
+
+        // Financial typography formatter: White bold integer + lighter gray cents
+        function formatMoney(amount) {
+            const num = Number(amount);
+            const formatted = num.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            const parts = formatted.split(',');
+            const intPart = parts[0];
+            const decimalPart = parts[1] || '00';
+            return `₺${intPart}<span class="text-slate-400 font-normal text-xs md:text-sm">,${decimalPart}</span>`;
+        }
+
+        // Compact Account & IBAN Formatter (TR33 •••• 0001)
+        function formatAccountLabel(acc) {
+            // Extracts IBAN and clean customer name from strings like "TR330006100511123456780001 (Alice Smith)"
+            const ibanMatch = acc.customerNumber.match(/^(TR\d{2})[\d]+(\d{4})\s*\((.+)\)$/);
+            if (ibanMatch) {
+                return {
+                    name: ibanMatch[3],
+                    ibanCompact: `${ibanMatch[1]} •••• ${ibanMatch[2]}`,
+                    fullIban: acc.customerNumber.split(' (')[0]
+                };
+            }
+            const nameMatch = acc.customerNumber.match(/\((.+)\)/);
+            const name = nameMatch ? nameMatch[1] : acc.customerNumber;
+            const shortId = acc.accountId.substring(0, 8);
+            return {
+                name: name,
+                ibanCompact: `ACC •••• ${shortId}`,
+                fullIban: acc.customerNumber
+            };
+        }
 
         function generateUUID() {
             return 'tx-' + 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -405,20 +501,49 @@
         function renderAccounts() {
             const grid = document.getElementById('accountsGrid');
             grid.innerHTML = accounts.map(acc => {
+                const info = formatAccountLabel(acc);
+                const isTreasury = acc.customerNumber.includes('Treasury');
                 const isCharlie = acc.customerNumber.includes('Charlie');
+                
+                let badgeColor = "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
+                let icon = "fa-user-check";
+                if (isTreasury) {
+                    badgeColor = "bg-indigo-500/10 text-indigo-400 border-indigo-500/20";
+                    icon = "fa-building-columns";
+                } else if (isCharlie) {
+                    badgeColor = "bg-amber-500/10 text-amber-400 border-amber-500/20";
+                    icon = "fa-user-clock";
+                }
+
                 return `
-                    <div class="glass-card rounded-xl p-4 relative overflow-hidden group hover:border-slate-600 transition">
-                        <div class="flex items-center justify-between mb-2">
-                            <span class="text-xs font-semibold text-slate-300">${acc.customerNumber}</span>
-                            <span class="text-[10px] px-2 py-0.5 rounded-full ${isCharlie ? 'bg-amber-500/20 text-amber-300' : 'bg-emerald-500/20 text-emerald-300'} font-mono">
+                    <div class="fintech-card rounded-2xl p-5 relative overflow-hidden group hover:border-slate-700/80 transition duration-300">
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-8 h-8 rounded-lg bg-slate-800/80 border border-slate-700/60 flex items-center justify-center text-slate-300 text-xs">
+                                    <i class="fa-solid ${icon}"></i>
+                                </div>
+                                <div>
+                                    <span class="text-sm font-semibold text-white block leading-tight">${info.name}</span>
+                                    <span class="text-[11px] font-mono text-slate-400">${info.ibanCompact}</span>
+                                </div>
+                            </div>
+                            <span class="text-[10px] px-2 py-0.5 rounded-full border ${badgeColor} font-mono uppercase tracking-wider">
                                 ${acc.status}
                             </span>
                         </div>
-                        <div class="text-xl font-bold font-mono ${isCharlie ? 'text-amber-400' : 'text-emerald-400'}">
-                            ₺${Number(acc.balance).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        
+                        <div class="mt-4">
+                            <span class="text-[10px] text-slate-400 uppercase tracking-wider font-medium block mb-1">Kullanılabilir Bakiye</span>
+                            <div class="text-2xl font-bold tracking-tight text-white flex items-baseline">
+                                ${formatMoney(acc.balance)}
+                            </div>
                         </div>
-                        <div class="text-[10px] text-slate-500 font-mono mt-2 truncate">
-                            ID: ${acc.accountId}
+
+                        <div class="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400 font-mono">
+                            <span class="text-slate-400">ID: ${acc.accountId.substring(0, 8)}...</span>
+                            <button onclick="navigator.clipboard.writeText('${acc.accountId}'); alert('Hesap ID kopyalandı!')" class="hover:text-slate-200 transition" title="Hesap ID Kopyala">
+                                <i class="fa-regular fa-copy"></i>
+                            </button>
                         </div>
                     </div>
                 `;
@@ -433,7 +558,12 @@
             const gwCustomer = document.getElementById('gwCustomer');
             const gwMerchant = document.getElementById('gwMerchant');
 
-            const options = accounts.map(a => `<option value="${a.accountId}">${a.customerNumber} (₺${Number(a.balance).toFixed(2)})</option>`).join('');
+            const options = accounts.map(a => {
+                const info = formatAccountLabel(a);
+                const balFormatted = Number(a.balance).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                return `<option value="${a.accountId}">${info.name} (${info.ibanCompact}) — ₺${balFormatted}</option>`;
+            }).join('');
+
             src.innerHTML = options;
             tgt.innerHTML = options;
             simTgt.innerHTML = options;
@@ -523,7 +653,7 @@
                 resultBox.innerHTML = `Hata: ${err.message}`;
             } finally {
                 btn.disabled = false;
-                btn.innerHTML = `<i class="fa-solid fa-lock text-sm"></i> Transferi Gerçekleştir`;
+                btn.innerHTML = `<i class="fa-solid fa-shield-halved"></i> Transferi Gönder`;
             }
         }
 
@@ -576,7 +706,10 @@
                 alert("Simülasyon hatası: " + err.message);
             } finally {
                 btn.disabled = false;
-                btn.innerHTML = `<i class="fa-solid fa-play"></i> 10 Paralel Thread'i Aynı Anda Ateşle`;
+                btn.innerHTML = `
+                    <i class="fa-solid fa-bolt text-indigo-400 group-hover:text-amber-300 transition-colors"></i>
+                    <span>10 Paralel Thread'i Aynı Anda Ateşle</span>
+                `;
             }
         }
 
@@ -590,25 +723,27 @@
                 const tbody = document.getElementById('ledgerTableBody');
 
                 if (!data.items || data.items.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="5" class="p-3 text-center text-slate-500">Bu hesap için henüz hareket bulunmuyor.</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-500">Bu hesap için henüz hareket bulunmuyor.</td></tr>`;
                     return;
                 }
 
                 tbody.innerHTML = data.items.map(e => {
                     const isDebit = e.type === 'DEBIT';
+                    const amountFormatted = Number(e.amount).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    const balAfterFormatted = Number(e.balanceAfter).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                     return `
                         <tr class="hover:bg-slate-800/40 transition">
-                            <td class="p-2">
-                                <span class="px-1.5 py-0.5 rounded text-[10px] ${isDebit ? 'bg-rose-500/20 text-rose-300' : 'bg-emerald-500/20 text-emerald-300'} font-bold">
+                            <td class="p-2.5">
+                                <span class="px-2 py-0.5 rounded text-[10px] ${isDebit ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'} font-bold">
                                     ${e.type}
                                 </span>
                             </td>
-                            <td class="p-2 font-bold ${isDebit ? 'text-rose-400' : 'text-emerald-400'}">
-                                ${isDebit ? '-' : '+'}₺${Number(e.amount).toFixed(2)}
+                            <td class="p-2.5 font-semibold ${isDebit ? 'text-rose-400' : 'text-emerald-400'}">
+                                ${isDebit ? '-' : '+'}₺${amountFormatted}
                             </td>
-                            <td class="p-2 text-slate-300 font-mono">₺${Number(e.balanceAfter).toFixed(2)}</td>
-                            <td class="p-2 text-slate-400 truncate max-w-[140px]" title="${e.description}">${e.description}</td>
-                            <td class="p-2 text-slate-500 text-[10px]">${new Date(e.createdAt).toLocaleTimeString()}</td>
+                            <td class="p-2.5 text-white font-mono">₺${balAfterFormatted}</td>
+                            <td class="p-2.5 text-slate-400 truncate max-w-[140px]" title="${e.description}">${e.description}</td>
+                            <td class="p-2.5 text-slate-400 text-[10px]">${new Date(e.createdAt).toLocaleTimeString()}</td>
                         </tr>
                     `;
                 }).join('');
@@ -631,12 +766,12 @@
                 list.innerHTML = events.slice(0, 8).map(ev => {
                     const isPub = ev.status === 'PUBLISHED';
                     return `
-                        <div class="p-2.5 rounded-lg bg-slate-900/90 border border-slate-800 flex items-center justify-between text-xs font-mono">
+                        <div class="p-2.5 rounded-lg bg-[#0A0F1D] border border-slate-800/80 flex items-center justify-between text-xs font-mono">
                             <div>
                                 <span class="text-purple-400 font-bold">${ev.eventType}</span>
-                                <span class="text-slate-500 block text-[10px]">ID: ${ev.id.substring(0, 18)}...</span>
+                                <span class="text-slate-400 block text-[10px]">ID: ${ev.id.substring(0, 18)}...</span>
                             </div>
-                            <span class="px-2 py-0.5 rounded text-[10px] ${isPub ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'}">
+                            <span class="px-2 py-0.5 rounded text-[10px] ${isPub ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}">
                                 ${ev.status}
                             </span>
                         </div>
@@ -653,11 +788,11 @@
             const el = document.getElementById('step' + stepNum);
             if (!el) return;
             if (active) {
-                el.className = "p-2 rounded-lg bg-purple-950/80 border border-purple-500 animate-pulse";
+                el.className = "p-2 rounded-lg bg-indigo-950/80 border border-indigo-500 animate-pulse";
             } else if (success) {
                 el.className = "p-2 rounded-lg bg-emerald-950/60 border border-emerald-500/50";
             } else {
-                el.className = "p-2 rounded-lg bg-slate-900 border border-slate-800";
+                el.className = "p-2 rounded-lg bg-[#0A0F1D] border border-slate-800";
             }
         }
 
@@ -704,7 +839,7 @@
                     btnWebhook.disabled = false;
 
                     resultBox.innerHTML = `
-                        <div class="text-purple-400 font-bold flex items-center gap-2">
+                        <div class="text-indigo-400 font-bold flex items-center gap-2">
                             <i class="fa-solid fa-check"></i> ${provider} Yetkilendirmesi Başarılı (Status: ${data.status})
                         </div>
                         <div class="text-slate-300">
@@ -804,4 +939,3 @@
     </script>
 </body>
 </html>
-
