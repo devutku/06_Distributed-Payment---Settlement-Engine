@@ -5,3 +5,4 @@ public enum TransferStatus {
     SETTLED,
     REJECTED
 }
+

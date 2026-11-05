@@ -65,3 +65,4 @@ public class LedgerJpaEntity {
     public String getDescription() { return description; }
     public Instant getCreatedAt() { return createdAt; }
 }
+

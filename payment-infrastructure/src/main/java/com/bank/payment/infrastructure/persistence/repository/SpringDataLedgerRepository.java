@@ -12,3 +12,4 @@ public interface SpringDataLedgerRepository extends JpaRepository<LedgerJpaEntit
     List<LedgerJpaEntity> findByAccountIdOrderByCreatedAtDesc(UUID accountId);
     List<LedgerJpaEntity> findTop50ByOrderByCreatedAtDesc();
 }
+

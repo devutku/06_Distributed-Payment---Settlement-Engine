@@ -13,3 +13,4 @@ public interface SpringDataTransferRepository extends JpaRepository<TransferJpaE
     Optional<TransferJpaEntity> findByIdempotencyKey(String idempotencyKey);
     List<TransferJpaEntity> findTop50ByOrderByCreatedAtDesc();
 }
+

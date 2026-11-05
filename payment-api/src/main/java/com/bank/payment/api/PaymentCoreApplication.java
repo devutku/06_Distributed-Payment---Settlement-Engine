@@ -16,3 +16,4 @@ public class PaymentCoreApplication {
         SpringApplication.run(PaymentCoreApplication.class, args);
     }
 }
+

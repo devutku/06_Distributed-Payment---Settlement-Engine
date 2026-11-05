@@ -5,3 +5,4 @@ public class InvalidTransferAmountException extends RuntimeException {
         super(message);
     }
 }
+

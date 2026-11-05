@@ -26,3 +26,4 @@ public record TransferId(UUID value) {
         return value.toString();
     }
 }
+

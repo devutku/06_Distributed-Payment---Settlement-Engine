@@ -6,3 +6,4 @@ import com.bank.payment.application.dto.TransferResultDto;
 public interface InitiateTransferUseCase {
     TransferResultDto execute(InitiateTransferCommand command);
 }
+

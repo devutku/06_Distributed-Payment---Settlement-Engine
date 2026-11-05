@@ -30,3 +30,4 @@ public class TransactionalTransferUseCaseDecorator implements InitiateTransferUs
         return delegate.execute(command);
     }
 }
+

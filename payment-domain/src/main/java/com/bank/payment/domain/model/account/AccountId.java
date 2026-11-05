@@ -31,3 +31,4 @@ public record AccountId(UUID value) implements Comparable<AccountId> {
         return value.toString();
     }
 }
+

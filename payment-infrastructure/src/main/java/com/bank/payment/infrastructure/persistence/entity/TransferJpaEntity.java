@@ -106,3 +106,4 @@ public class TransferJpaEntity {
     public String getRejectionReason() { return rejectionReason; }
     public Instant getCreatedAt() { return createdAt; }
 }
+

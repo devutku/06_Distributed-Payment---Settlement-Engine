@@ -49,3 +49,4 @@ if ($Local) {
     Write-Host "[RUN] Standart profille başlatılıyor (PostgreSQL + Redis + Kafka)..." -ForegroundColor Green
     & $mavenCmd -pl payment-api spring-boot:run
 }
+

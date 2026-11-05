@@ -20,3 +20,4 @@ public interface SpringDataAccountRepository extends JpaRepository<AccountJpaEnt
 
     Optional<AccountJpaEntity> findByCustomerNumber(String customerNumber);
 }
+

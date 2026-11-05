@@ -60,3 +60,4 @@ public class Transfer {
     public String getRejectionReason() { return rejectionReason; }
     public Instant getCreatedAt() { return createdAt; }
 }
+

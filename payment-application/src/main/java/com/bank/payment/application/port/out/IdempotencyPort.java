@@ -11,3 +11,4 @@ public interface IdempotencyPort {
     Optional<TransferResultDto> getCachedResult(IdempotencyKey key);
     void cacheResult(IdempotencyKey key, TransferResultDto result);
 }
+

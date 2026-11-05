@@ -11,3 +11,4 @@ public interface LoadAccountPort {
     Optional<Account> loadAccountWithLock(AccountId id);
     List<Account> loadAllAccounts();
 }
+

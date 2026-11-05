@@ -45,3 +45,4 @@ public class AccountPersistenceAdapter implements LoadAccountPort, UpdateAccount
         accountRepository.save(entity);
     }
 }
+

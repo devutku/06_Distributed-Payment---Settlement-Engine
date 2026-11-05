@@ -46,3 +46,4 @@ public class Account {
     public AccountStatus getStatus() { return status; }
     public Long getVersion() { return version; }
 }
+

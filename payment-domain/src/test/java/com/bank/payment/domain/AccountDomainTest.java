@@ -47,3 +47,4 @@ class AccountDomainTest {
                 .isInstanceOf(AccountInactiveException.class);
     }
 }
+

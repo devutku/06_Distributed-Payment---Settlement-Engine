@@ -6,3 +6,4 @@ import com.bank.payment.domain.model.account.AccountId;
 public interface GetAccountStatementQuery {
     AccountStatementDto getStatement(AccountId accountId);
 }
+

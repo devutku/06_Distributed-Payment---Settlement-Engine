@@ -64,3 +64,4 @@ public class OutboxJpaEntity {
     public Instant getProcessedAt() { return processedAt; }
     public void setProcessedAt(Instant processedAt) { this.processedAt = processedAt; }
 }
+

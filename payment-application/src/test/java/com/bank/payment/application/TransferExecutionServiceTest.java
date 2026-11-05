@@ -79,3 +79,4 @@ class TransferExecutionServiceTest {
         verify(idempotencyPort).releaseLock(command.idempotencyKey());
     }
 }
+

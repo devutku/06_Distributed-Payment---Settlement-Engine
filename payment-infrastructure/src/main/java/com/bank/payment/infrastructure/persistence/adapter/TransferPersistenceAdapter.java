@@ -66,3 +66,4 @@ public class TransferPersistenceAdapter implements SaveTransferPort {
         ledgerRepository.saveAll(List.of(debitEntry, creditEntry));
     }
 }
+

@@ -18,3 +18,4 @@ public record TransferResultDto(
         Instant timestamp,
         boolean idempotentReplay
 ) {}
+

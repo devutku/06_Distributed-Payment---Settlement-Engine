@@ -8,3 +8,4 @@ public interface DomainEvent {
     Instant getOccurredAt();
     String getEventType();
 }
+

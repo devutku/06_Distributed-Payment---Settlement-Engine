@@ -9,3 +9,4 @@ public interface GetAccountBalanceQuery {
     AccountBalanceDto getAccountById(AccountId accountId);
     List<AccountBalanceDto> getAllAccounts();
 }
+

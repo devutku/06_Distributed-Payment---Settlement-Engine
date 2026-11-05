@@ -17,3 +17,4 @@ public interface SpringDataOutboxRepository extends JpaRepository<OutboxJpaEntit
 
     List<OutboxJpaEntity> findTop50ByOrderByCreatedAtDesc();
 }
+

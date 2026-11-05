@@ -5,3 +5,4 @@ public class InsufficientFundsException extends RuntimeException {
         super(message);
     }
 }
+

@@ -52,3 +52,4 @@ public record Money(BigDecimal amount, Currency currency) {
         }
     }
 }
+
