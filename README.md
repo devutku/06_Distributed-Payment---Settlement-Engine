@@ -11,47 +11,6 @@
 [![Grafana](https://img.shields.io/badge/Grafana-Live_Dashboard-F46800?style=for-the-badge&logo=grafana&logoColor=white)](https://grafana.com/)
 [![Docker](https://img.shields.io/badge/Docker_Compose-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
 
----
-graph TD
-
-    Client[Web ve Mobil İstemci] -->|1. POST transfers Header: Idempotency-Key| Gateway[API Gateway]
-    Gateway --> Filter[Idempotency Filter]
-    
-    Filter <-->|2. SETNX Kilit ve TTL| Redis[(Redis 7 Cache)]
-    Filter -->|3. Onaylı İstek| API[Payment REST API]
-    API --> UseCase[Transfer Execution Service]
-    
-    subgraph CoreDomain [Clean Architecture Domain Core]
-        AccountAgg[Account Aggregate]
-        TransferAgg[Transfer Aggregate]
-    end
-    UseCase --> CoreDomain
-    
-    subgraph Postgres [PostgreSQL 16 - Tek ACID Transaction]
-        AccountsTbl[(accounts Tablosu - SELECT FOR UPDATE)]
-        TransfersTbl[(transfers Tablosu - SETTLED)]
-        OutboxTbl[(outbox_events Tablosu - JSONB)]
-    end
-    
-    UseCase -->|4. Deterministik Satır Kilidi| AccountsTbl
-    UseCase -->|5. Bakiye Güncelleme| TransfersTbl
-    UseCase -->|6. Atomik Outbox Kaydı| OutboxTbl
-    
-    Postgres -.->|Fiziksel Disk Logu| WAL[PostgreSQL WAL Log]
-    WAL ==>|7. Streaming Okuma| Debezium[Kafka Connect ve Debezium]
-    Debezium -->|8. Event Routing| Kafka{Apache Kafka Topic}
-    
-    subgraph Downstream [Tüketici Mikroservisler]
-        NotifSvc[Notification Service]
-        LedgerSvc[Ledger ve Accounting Service]
-        FraudSvc[Fraud Detection Service]
-    end
-    
-    Kafka --> NotifSvc
-    Kafka --> LedgerSvc
-    Kafka --> FraudSvc
----   
-
 ## 📌 Proje Genel Bakışı & Vitrin Değeri
 
 **AegisPay**, modern bankacılık, ödeme geçidi (Payment Gateway) ve fintech sistemlerinin (Adyen, Stripe, Wise, BKM vb.) yüksek hacimli ve sıfır hata toleranslı para transferi gereksinimlerine göre inşa edilmiş, **uçtan uca üretime hazır (production-grade)** bir dağıtık mutabakat ve transfer motorudur.
