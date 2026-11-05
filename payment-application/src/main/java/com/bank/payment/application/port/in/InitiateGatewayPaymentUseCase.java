@@ -37,3 +37,4 @@ public interface InitiateGatewayPaymentUseCase {
 
     GatewayPaymentResponse initiatePayment(GatewayPaymentCommand command);
 }
+

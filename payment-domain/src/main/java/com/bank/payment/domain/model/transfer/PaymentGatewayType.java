@@ -6,3 +6,4 @@ public enum PaymentGatewayType {
     RAZORPAY,
     INTERNAL
 }
+

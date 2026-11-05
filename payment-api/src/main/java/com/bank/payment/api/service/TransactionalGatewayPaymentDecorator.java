@@ -30,3 +30,4 @@ public class TransactionalGatewayPaymentDecorator implements InitiateGatewayPaym
         return delegate.processWebhook(command);
     }
 }
+

@@ -39,3 +39,4 @@ public record PaymentCapturedEvent(
         return "PaymentCaptured";
     }
 }
+

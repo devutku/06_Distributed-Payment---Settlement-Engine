@@ -98,3 +98,4 @@ public class MockPaymentGatewayAdapter implements PaymentGatewayPort {
         }
     }
 }
+

@@ -6,7 +6,7 @@ spring:
     name: distributed-payment-core
 
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/settlement_db}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5433/settlement_db}
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
     password: ${SPRING_DATASOURCE_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver

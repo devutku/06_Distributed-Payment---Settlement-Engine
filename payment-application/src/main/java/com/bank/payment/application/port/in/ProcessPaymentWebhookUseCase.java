@@ -28,3 +28,4 @@ public interface ProcessPaymentWebhookUseCase {
 
     WebhookResult processWebhook(WebhookCommand command);
 }
+

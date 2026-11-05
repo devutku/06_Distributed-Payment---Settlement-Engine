@@ -26,3 +26,4 @@ public interface PaymentGatewayPort {
 
     boolean verifySignature(String payload, String signatureHeader);
 }
+
