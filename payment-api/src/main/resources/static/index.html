@@ -229,6 +229,94 @@
             </div>
         </section>
 
+        <!-- High-Level Payment Processing System (Gateway & Webhook Lifecycle) -->
+        <section class="glass-card rounded-2xl p-6 shadow-xl space-y-5 border border-purple-500/20">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+                <div>
+                    <h3 class="font-bold text-lg text-slate-100 flex items-center gap-2">
+                        <i class="fa-solid fa-credit-card text-purple-400"></i> High-Level Payment Processing System (Gateway &amp; Webhook)
+                    </h3>
+                    <p class="text-xs text-slate-400 mt-0.5">
+                        Stripe / PayPal PSP &bull; Webhook Listener (<code class="text-purple-300">POST /webhooks</code>) &bull; HMAC-SHA256 &bull; Order Fulfillment
+                    </p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-xs font-mono px-2 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                        PENDING &rarr; AUTHORIZED &rarr; CAPTURED
+                    </span>
+                </div>
+            </div>
+
+            <!-- Visual Flow Bar Matching the Architecture Diagram -->
+            <div class="grid grid-cols-2 md:grid-cols-6 gap-2 text-center text-[11px] font-mono">
+                <div class="p-2 rounded-lg bg-slate-900 border border-slate-800" id="step1">
+                    <span class="text-blue-400 font-bold block">1. User &amp; Frontend</span>
+                    <span class="text-slate-400 text-[10px]">Clicks "Pay" + Idemp-Key</span>
+                </div>
+                <div class="p-2 rounded-lg bg-slate-900 border border-slate-800" id="step2">
+                    <span class="text-teal-400 font-bold block">2. Payment Service</span>
+                    <span class="text-slate-400 text-[10px]">Create "PENDING" DB</span>
+                </div>
+                <div class="p-2 rounded-lg bg-slate-900 border border-slate-800" id="step3">
+                    <span class="text-purple-400 font-bold block">3. Payment Gateway</span>
+                    <span class="text-slate-400 text-[10px]">Stripe/PayPal (AUTH)</span>
+                </div>
+                <div class="p-2 rounded-lg bg-slate-900 border border-slate-800" id="step4">
+                    <span class="text-amber-400 font-bold block">4. Webhook Listener</span>
+                    <span class="text-slate-400 text-[10px]">HMAC-SHA256 Signature</span>
+                </div>
+                <div class="p-2 rounded-lg bg-slate-900 border border-slate-800" id="step5">
+                    <span class="text-emerald-400 font-bold block">5. Update Ledger</span>
+                    <span class="text-slate-400 text-[10px]">Record CAPTURED</span>
+                </div>
+                <div class="p-2 rounded-lg bg-slate-900 border border-slate-800" id="step6">
+                    <span class="text-rose-400 font-bold block">6. Order Fulfillment</span>
+                    <span class="text-slate-400 text-[10px]">Kafka Outbox Trigger</span>
+                </div>
+            </div>
+
+            <!-- Gateway Form Controls -->
+            <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 text-sm">
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Müşteri Hesabı</label>
+                    <select id="gwCustomer" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200"></select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Mağaza / Alıcı Hesap</label>
+                    <select id="gwMerchant" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200"></select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Ödeme Sağlayıcı (PSP)</label>
+                    <select id="gwProvider" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 font-mono">
+                        <option value="STRIPE">Stripe (PaymentIntent)</option>
+                        <option value="PAYPAL">PayPal (Order API)</option>
+                        <option value="RAZORPAY">Razorpay</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Tutar (₺)</label>
+                    <input id="gwAmount" type="number" step="0.01" value="350.00" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs code-font text-slate-200">
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex flex-wrap gap-3">
+                <button id="btnGwAuthorize" onclick="runGatewayAuthorize()" class="flex-1 py-2 px-3 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow-lg shadow-purple-500/20">
+                    <i class="fa-solid fa-credit-card"></i> 1. Pay with Gateway (Authorize)
+                </button>
+                <button id="btnGwWebhook" onclick="runGatewayWebhook()" class="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/20" disabled>
+                    <i class="fa-solid fa-satellite-dish"></i> 2. Simulate Webhook (Capture &amp; Settle)
+                </button>
+                <button onclick="runAutomatedGatewayFlow()" class="py-2 px-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-semibold rounded-xl text-xs transition flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> Tam Otomatik Akış (1-Click E2E)
+                </button>
+            </div>
+
+            <!-- Gateway Result Box -->
+            <div id="gwResultBox" class="hidden rounded-xl p-4 bg-slate-900/90 border border-slate-800 text-xs font-mono space-y-2">
+            </div>
+        </section>
+
         <!-- Bottom Grid: Double-Entry Ledger & Transactional Outbox / Kafka Monitor -->
         <section class="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
@@ -342,16 +430,21 @@
             const tgt = document.getElementById('transferTarget');
             const simTgt = document.getElementById('simTarget');
             const ledgerSel = document.getElementById('ledgerAccountSelect');
+            const gwCustomer = document.getElementById('gwCustomer');
+            const gwMerchant = document.getElementById('gwMerchant');
 
             const options = accounts.map(a => `<option value="${a.accountId}">${a.customerNumber} (₺${Number(a.balance).toFixed(2)})</option>`).join('');
             src.innerHTML = options;
             tgt.innerHTML = options;
             simTgt.innerHTML = options;
             ledgerSel.innerHTML = options;
+            if (gwCustomer) gwCustomer.innerHTML = options;
+            if (gwMerchant) gwMerchant.innerHTML = options;
 
             if (accounts.length > 1) {
                 tgt.selectedIndex = 1;
                 simTgt.selectedIndex = 1;
+                if (gwMerchant) gwMerchant.selectedIndex = 1;
             }
         }
 
@@ -552,6 +645,149 @@
             } catch (err) {
                 console.error("Outbox listeleme hatası", err);
             }
+        }
+
+        let lastGatewayData = null;
+
+        function setStepActive(stepNum, active, success) {
+            const el = document.getElementById('step' + stepNum);
+            if (!el) return;
+            if (active) {
+                el.className = "p-2 rounded-lg bg-purple-950/80 border border-purple-500 animate-pulse";
+            } else if (success) {
+                el.className = "p-2 rounded-lg bg-emerald-950/60 border border-emerald-500/50";
+            } else {
+                el.className = "p-2 rounded-lg bg-slate-900 border border-slate-800";
+            }
+        }
+
+        async function runGatewayAuthorize() {
+            const btnAuth = document.getElementById('btnGwAuthorize');
+            const btnWebhook = document.getElementById('btnGwWebhook');
+            const resultBox = document.getElementById('gwResultBox');
+            const custId = document.getElementById('gwCustomer').value;
+            const merchId = document.getElementById('gwMerchant').value;
+            const provider = document.getElementById('gwProvider').value;
+            const amount = parseFloat(document.getElementById('gwAmount').value);
+
+            btnAuth.disabled = true;
+            setStepActive(1, true, false);
+            setStepActive(2, false, false);
+            setStepActive(3, false, false);
+
+            try {
+                const res = await fetch('/api/v1/gateway/pay', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Idempotency-Key': generateUUID()
+                    },
+                    body: JSON.stringify({
+                        customerAccountId: custId,
+                        merchantAccountId: merchId,
+                        amount: amount,
+                        currency: 'TRY',
+                        gatewayType: provider,
+                        customerEmail: 'customer@checkout.com',
+                        description: provider + ' E-Commerce Checkout'
+                    })
+                });
+
+                const data = await res.json();
+                lastGatewayData = data;
+                resultBox.classList.remove('hidden');
+
+                if (res.ok) {
+                    setStepActive(1, false, true);
+                    setStepActive(2, false, true);
+                    setStepActive(3, false, true);
+                    btnWebhook.disabled = false;
+
+                    resultBox.innerHTML = `
+                        <div class="text-purple-400 font-bold flex items-center gap-2">
+                            <i class="fa-solid fa-check"></i> ${provider} Yetkilendirmesi Başarılı (Status: ${data.status})
+                        </div>
+                        <div class="text-slate-300">
+                            <strong>External Ref ID:</strong> <span class="text-amber-300">${data.externalReferenceId}</span><br>
+                            <strong>Client Secret:</strong> <span class="text-slate-400">${data.clientSecret}</span><br>
+                            <strong>Transfer ID:</strong> ${data.transferId} | <strong>Tutar:</strong> ₺${data.amount}
+                        </div>
+                        <div class="text-[11px] text-slate-400">
+                            💡 Şemadaki 3. adım tamamlandı. Şimdi '2. Simulate Webhook' butonuna basarak Gateway'in CAPTURED webhook'unu tetikleyebilirsiniz.
+                        </div>
+                    `;
+                } else {
+                    resultBox.innerHTML = `<div class="text-rose-400">Yetkilendirme Hatası: ${data.detail || data.title}</div>`;
+                }
+
+                await fetchAccounts();
+                await fetchOutbox();
+            } catch (err) {
+                resultBox.classList.remove('hidden');
+                resultBox.innerHTML = `<div class="text-rose-400">Hata: ${err.message}</div>`;
+            } finally {
+                btnAuth.disabled = false;
+            }
+        }
+
+        async function runGatewayWebhook() {
+            if (!lastGatewayData || !lastGatewayData.externalReferenceId) {
+                alert("Önce 1. adımdaki Gateway Authorize işlemini çalıştırın.");
+                return;
+            }
+
+            const btnWebhook = document.getElementById('btnGwWebhook');
+            const resultBox = document.getElementById('gwResultBox');
+            btnWebhook.disabled = true;
+            setStepActive(4, true, false);
+
+            try {
+                const res = await fetch('/api/v1/webhooks/gateway/simulate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        externalReferenceId: lastGatewayData.externalReferenceId,
+                        amount: lastGatewayData.amount,
+                        currency: 'TRY'
+                    })
+                });
+
+                const data = await res.json();
+
+                if (res.ok) {
+                    setStepActive(4, false, true);
+                    setStepActive(5, false, true);
+                    setStepActive(6, false, true);
+
+                    resultBox.innerHTML += `
+                        <div class="border-t border-slate-800 pt-2 mt-2">
+                            <div class="text-emerald-400 font-bold flex items-center gap-2">
+                                <i class="fa-solid fa-shield-halved"></i> Webhook İmzası (HMAC-SHA256) Doğrulandı &bull; Status: ${data.status}
+                            </div>
+                            <div class="text-slate-300">
+                                ${data.message}
+                            </div>
+                            <div class="text-xs text-rose-400 mt-1">
+                                &check; Transactional Outbox üzerinden <strong>Order Fulfillment</strong> event'i Kafka'ya fırlatıldı!
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    resultBox.innerHTML += `<div class="text-rose-400">Webhook Hatası: ${data.detail || data.title}</div>`;
+                }
+
+                await fetchAccounts();
+                await loadStatement();
+                await fetchOutbox();
+            } catch (err) {
+                resultBox.innerHTML += `<div class="text-rose-400">Hata: ${err.message}</div>`;
+            }
+        }
+
+        async function runAutomatedGatewayFlow() {
+            await runGatewayAuthorize();
+            await new Promise(r => setTimeout(r, 800));
+            await runGatewayWebhook();
         }
 
         async function publishOutboxNow() {

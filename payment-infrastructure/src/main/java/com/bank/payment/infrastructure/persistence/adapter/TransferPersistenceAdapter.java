@@ -40,6 +40,12 @@ public class TransferPersistenceAdapter implements SaveTransferPort {
     }
 
     @Override
+    public Optional<Transfer> findByExternalReferenceId(String externalReferenceId) {
+        return transferRepository.findByExternalReferenceId(externalReferenceId)
+                .map(TransferJpaEntity::toDomain);
+    }
+
+    @Override
     public void recordDoubleEntryLedger(Transfer transfer, Account sourceAccount, Account targetAccount, String description) {
         // Entry 1: DEBIT source account
         LedgerJpaEntity debitEntry = new LedgerJpaEntity(
@@ -66,4 +72,3 @@ public class TransferPersistenceAdapter implements SaveTransferPort {
         ledgerRepository.saveAll(List.of(debitEntry, creditEntry));
     }
 }
-

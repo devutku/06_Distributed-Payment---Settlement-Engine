@@ -1,7 +1,9 @@
 package com.bank.payment.api;
 
+import com.bank.payment.api.controller.GatewayPaymentController;
 import com.bank.payment.api.controller.TransferController;
 import com.bank.payment.domain.model.shared.Currency;
+import com.bank.payment.domain.model.transfer.PaymentGatewayType;
 import com.bank.payment.infrastructure.persistence.repository.SpringDataAccountRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
@@ -19,8 +21,10 @@ import org.springframework.kafka.core.ProducerFactory;
 import org.springframework.kafka.support.SendResult;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 
 import java.math.BigDecimal;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -134,6 +138,51 @@ class PaymentCoreIntegrationTest {
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.title").value("Insufficient Funds"));
+    }
+
+    @Test
+    @DisplayName("Full End-to-End Payment Gateway & Webhook Lifecycle matching diagram")
+    void testPaymentGatewayAndWebhookFlow() throws Exception {
+        UUID aliceId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+        UUID bobId = UUID.fromString("22222222-2222-2222-2222-222222222222");
+
+        // 1. User Clicks Pay -> Payment Request with Idempotency Key -> Gateway AUTHORIZED
+        GatewayPaymentController.GatewayPayRequest payReq = new GatewayPaymentController.GatewayPayRequest(
+                aliceId,
+                bobId,
+                new BigDecimal("200.00"),
+                Currency.TRY,
+                PaymentGatewayType.STRIPE,
+                "alice@example.com",
+                "E-Commerce Order #8821"
+        );
+
+        String idempotencyKey = "PSP-IDEMP-" + UUID.randomUUID();
+
+        MvcResult result = mockMvc.perform(post("/api/v1/gateway/pay")
+                        .header("Idempotency-Key", idempotencyKey)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payReq)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("AUTHORIZED"))
+                .andExpect(jsonPath("$.externalReferenceId").exists())
+                .andReturn();
+
+        String responseBody = result.getResponse().getContentAsString();
+        Map<String, Object> respMap = objectMapper.readValue(responseBody, Map.class);
+        String externalRef = (String) respMap.get("externalReferenceId");
+
+        // 2. Gateway triggers CAPTURED Webhook -> Webhook Listener receives and processes
+        mockMvc.perform(post("/api/v1/webhooks/gateway/simulate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "externalReferenceId", externalRef,
+                                "amount", 200.00,
+                                "currency", "TRY"
+                        ))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("SETTLED"))
+                .andExpect(jsonPath("$.processed").value(true));
     }
 
     @Test

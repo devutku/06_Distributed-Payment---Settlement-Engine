@@ -4,6 +4,7 @@ import com.bank.payment.domain.model.account.AccountId;
 import com.bank.payment.domain.model.shared.Currency;
 import com.bank.payment.domain.model.shared.Money;
 import com.bank.payment.domain.model.transfer.IdempotencyKey;
+import com.bank.payment.domain.model.transfer.PaymentGatewayType;
 import com.bank.payment.domain.model.transfer.Transfer;
 import com.bank.payment.domain.model.transfer.TransferId;
 import com.bank.payment.domain.model.transfer.TransferStatus;
@@ -18,7 +19,8 @@ import java.util.UUID;
 @Table(
     name = "transfers",
     indexes = {
-        @Index(name = "idx_tx_idempotency", columnList = "idempotency_key", unique = true)
+        @Index(name = "idx_tx_idempotency", columnList = "idempotency_key", unique = true),
+        @Index(name = "idx_tx_external_ref", columnList = "external_reference_id")
     }
 )
 public class TransferJpaEntity {
@@ -47,6 +49,13 @@ public class TransferJpaEntity {
     @Column(name = "status", nullable = false, length = 20)
     private TransferStatus status;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "gateway_type", length = 20)
+    private PaymentGatewayType gatewayType;
+
+    @Column(name = "external_reference_id", length = 120)
+    private String externalReferenceId;
+
     @Column(name = "rejection_reason", length = 255)
     private String rejectionReason;
 
@@ -57,7 +66,9 @@ public class TransferJpaEntity {
     public TransferJpaEntity() {}
 
     public TransferJpaEntity(UUID id, String idempotencyKey, UUID sourceAccountId, UUID targetAccountId,
-                             BigDecimal amount, Currency currency, TransferStatus status, String rejectionReason, Instant createdAt) {
+                             BigDecimal amount, Currency currency, TransferStatus status, 
+                             PaymentGatewayType gatewayType, String externalReferenceId,
+                             String rejectionReason, Instant createdAt) {
         this.id = id;
         this.idempotencyKey = idempotencyKey;
         this.sourceAccountId = sourceAccountId;
@@ -65,6 +76,8 @@ public class TransferJpaEntity {
         this.amount = amount;
         this.currency = currency;
         this.status = status;
+        this.gatewayType = gatewayType != null ? gatewayType : PaymentGatewayType.INTERNAL;
+        this.externalReferenceId = externalReferenceId;
         this.rejectionReason = rejectionReason;
         this.createdAt = createdAt;
     }
@@ -77,6 +90,8 @@ public class TransferJpaEntity {
                 AccountId.of(this.targetAccountId),
                 Money.of(this.amount, this.currency),
                 this.status,
+                this.gatewayType != null ? this.gatewayType : PaymentGatewayType.INTERNAL,
+                this.externalReferenceId,
                 this.rejectionReason,
                 this.createdAt != null ? this.createdAt : Instant.now()
         );
@@ -91,6 +106,8 @@ public class TransferJpaEntity {
                 transfer.getAmount().amount(),
                 transfer.getAmount().currency(),
                 transfer.getStatus(),
+                transfer.getGatewayType(),
+                transfer.getExternalReferenceId(),
                 transfer.getRejectionReason(),
                 transfer.getCreatedAt()
         );
@@ -103,7 +120,8 @@ public class TransferJpaEntity {
     public BigDecimal getAmount() { return amount; }
     public Currency getCurrency() { return currency; }
     public TransferStatus getStatus() { return status; }
+    public PaymentGatewayType getGatewayType() { return gatewayType; }
+    public String getExternalReferenceId() { return externalReferenceId; }
     public String getRejectionReason() { return rejectionReason; }
     public Instant getCreatedAt() { return createdAt; }
 }
-

@@ -9,6 +9,6 @@ import java.util.Optional;
 public interface SaveTransferPort {
     void saveTransfer(Transfer transfer);
     Optional<Transfer> findByIdempotencyKey(IdempotencyKey key);
+    Optional<Transfer> findByExternalReferenceId(String externalReferenceId);
     void recordDoubleEntryLedger(Transfer transfer, Account sourceAccount, Account targetAccount, String description);
 }
-

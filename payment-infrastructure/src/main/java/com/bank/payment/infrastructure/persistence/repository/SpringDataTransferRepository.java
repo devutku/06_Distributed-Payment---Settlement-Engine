@@ -11,6 +11,6 @@ import java.util.UUID;
 @Repository
 public interface SpringDataTransferRepository extends JpaRepository<TransferJpaEntity, UUID> {
     Optional<TransferJpaEntity> findByIdempotencyKey(String idempotencyKey);
+    Optional<TransferJpaEntity> findByExternalReferenceId(String externalReferenceId);
     List<TransferJpaEntity> findTop50ByOrderByCreatedAtDesc();
 }
-

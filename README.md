@@ -227,6 +227,36 @@ Bankacılıkta para "yoktan var edilemez" veya "buharlaşıp yok olamaz". Her bi
 - **CREDIT (Alacak):** Alıcı hesaba giren para.
 - Her kayıtta `balanceAfter` (işlem anındaki bakiye fotoğrafı) saklanır. Böylece denetlenebilir, değiştirilemez ve anlık hesap ekstresi (audit trail) üretilir.
 
+### 6. High-Level Payment Processing System (Gateway & Webhook Akışı)
+Proje, kurumsal e-ticaret ve PSP ödeme akışını (Stripe, PayPal, Razorpay) 6 aşamalı bir yaşam döngüsüyle yönetir:
+
+```
+[ User & Frontend ]
+        │ 1. Payment Request with Idempotency-Key
+        ▼
+[ Payment Service (Payment API) ]
+        │ 2. Create "PENDING" Record & Insert Idempotency Key (PostgreSQL + Redis)
+        ▼
+[ Payment Gateway (External Provider) ]
+        │ 3. Authorize Payment (Stripe / PayPal / Razorpay) -> Returns "AUTHORIZED"
+        ▼
+[ Webhook Listener (POST /webhooks) ]
+        │ 4. Receive CAPTURED Webhook & Verify HMAC-SHA256 Signature
+        ▼
+[ Update Ledger (Payment Service) ]
+        │ 5. Record AUTHORIZED / CAPTURED in Double-Entry Ledger (ACID Commit)
+        ▼
+[ Backend Services (Order Fulfillment) ]
+          6. Trigger Inventory & Shipping via Transactional Outbox (Apache Kafka)
+```
+
+1. **User & Frontend:** İstemci, mükerrer ödemeleri engellemek için benzersiz `Idempotency-Key` başlığıyla `POST /api/v1/gateway/pay` isteğinde bulunur.
+2. **PENDING Kaydı:** Veritabanında işlem `PENDING` olarak açılır ve Redis'te kilitlenir.
+3. **Gateway Yetkilendirmesi:** Mock Gateway adaptörü dış sağlayıcıyı (Stripe PaymentIntent / PayPal Order) çağırarak `externalReferenceId` (`pi_stripe_...`) alır ve durumu `AUTHORIZED` yapar.
+4. **Webhook Listener (`POST /api/v1/webhooks/gateway`):** Dış sağlayıcı ödemeyi başarıyla çektiğinde sisteme bir Webhook fırlatır. Webhook dinleyicisi **HMAC-SHA256 imza doğrulaması** ile isteğin sahte olmadığını ve Stripe/PayPal tarafından yollandığını doğrular (Timing attack korumalı constant-time karşılaştırma).
+5. **Update Ledger:** Webhook teyidiyle işlem `CAPTURED` ve `SETTLED` yapılır; Borç ve Alacak ledger kayıtları oluşturulur.
+6. **Trigger Order Fulfillment:** Transactional Outbox'a `PaymentCapturedEvent` yazılır; Kafka üzerinden envanter ve kargo (Inventory & Shipping) mikroservisleri kayıpsız tetiklenir.
+
 ---
 
 ## 📊 İzlenebilirlik (Observability & Metrics)
@@ -324,6 +354,32 @@ curl -X POST http://localhost:8080/api/v1/simulation/concurrency \
     "targetAccountId": "22222222-2222-2222-2222-222222222222",
     "concurrencyCount": 10,
     "amountPerTransfer": 100.00
+  }'
+```
+
+### 4. E-Ticaret Ödeme Geçidi (Stripe / PayPal Pay & Webhook)
+```bash
+# 1. Aşama: Gateway Yetkilendirmesi (Authorize)
+curl -X POST http://localhost:8080/api/v1/gateway/pay \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: psp-order-9901" \
+  -d '{
+    "customerAccountId": "11111111-1111-1111-1111-111111111111",
+    "merchantAccountId": "22222222-2222-2222-2222-222222222222",
+    "amount": 350.00,
+    "currency": "TRY",
+    "gatewayType": "STRIPE",
+    "customerEmail": "customer@shop.com",
+    "description": "MacBook Stand Order #8821"
+  }'
+
+# 2. Aşama: Otomatik İmzalanmış CAPTURED Webhook Simülasyonu
+curl -X POST http://localhost:8080/api/v1/webhooks/gateway/simulate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "externalReferenceId": "pi_stripe_1fa7f92b51fb40cb",
+    "amount": 350.00,
+    "currency": "TRY"
   }'
 ```
 
