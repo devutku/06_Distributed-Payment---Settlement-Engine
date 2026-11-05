@@ -18,75 +18,61 @@ flowchart TD
         Client["Web / Mobil İstemci"]
         Gateway["API Gateway / Reverse Proxy"]
     end
-
     %% Payment Service (Spring Boot - Clean Architecture)
     subgraph PaymentService ["2. Payment Core Service (Spring Boot 3 / Java 21)"]
         direction TB
         Filter["Idempotency Filter\n(Header: Idempotency-Key)"]
         API["Payment REST API Controller\n(payment-api)"]
         UseCase["TransferExecutionService\n(payment-application)"]
-        
         subgraph DomainCore ["payment-domain (Saf Java)"]
             AccountAgg["Account Aggregate\n(Bakiye Doğrulama & Kurallar)"]
             TransferAgg["Transfer Aggregate\n(State: PENDING -> SETTLED)"]
         end
     end
-
     %% Veri ve Önbellek Katmanı
     subgraph DataLayer ["3. Veri & Önbellek Altyapısı"]
         Redis[("Redis 7\n- Idempotency Locks (TTL)\n- Token Blacklist")]
-        
         subgraph PostgresCluster ["PostgreSQL 16 (Tek ACID Transaction)"]
             direction TB
             AccountsTable[("accounts Table\n(SELECT ... FOR UPDATE)")]
             TransfersTable[("transfers Table\n(Durum: SETTLED)")]
             OutboxTable[("outbox_events Table\n(Event Payload JSONB)")]
         end
-        
         WAL["PostgreSQL WAL\n(Write-Ahead Log / Logical Replication)"]
     end
-
     %% Mesajlaşma & CDC Katmanı
     subgraph EventStreamLayer ["4. Güvenilir Olay Dağıtımı (CDC)"]
         Debezium["Kafka Connect + Debezium\n(EventRouter SMT)"]
         KafkaBrokers{{"Apache Kafka Kümesi\nTopic: transfer.settled.events"}}
     end
-
     %% Downstream Servisler
     subgraph DownstreamServices ["5. Tüketici Mikroservisler"]
         NotificationSvc["Notification Service\n(SMS / E-posta)"]
         LedgerSvc["Accounting & General Ledger Svc\n(Idempotent Consumer)"]
         FraudSvc["Risk & Fraud Detection Engine"]
     end
-
     %% Akış Bağlantıları
     Client -->|"POST /transfers\nIdempotency-Key: uuid"| Gateway
     Gateway --> Filter
-    
     Filter <-->|"1. SETNX / Kilit Kontrolü"| Redis
     Filter -->|"2. Yeni İstek İletimi"| API
     API --> UseCase
     UseCase --> DomainCore
-    
     UseCase -->|"3. Deterministik Satır Kilidi (Pessimistic)"| AccountsTable
     UseCase -->|"4. Bakiye Düşümü & Transfer Kaydı"| TransfersTable
     UseCase -->|"5. Outbox Event Yazımı (Atomik Commit)"| OutboxTable
-    
     PostgresCluster -.->|"Fiziksel Disk Logu"| WAL
     WAL ==>|"6. Log Streaming (Sıfır DB Yükü)"| Debezium
     Debezium -->|"7. Otomatik Yönlendirme"| KafkaBrokers
-    
     KafkaBrokers --> NotificationSvc
     KafkaBrokers --> LedgerSvc
     KafkaBrokers --> FraudSvc
-
     %% Stil Tanımları
     classDef client fill:#1e293b,stroke:#475569,stroke-width:2px,color:#f8fafc;
     classDef service fill:#0f172a,stroke:#3b82f6,stroke-width:2px,color:#f8fafc;
     classDef data fill:#064e3b,stroke:#10b981,stroke-width:2px,color:#f8fafc;
     classDef kafka fill:#451a03,stroke:#f59e0b,stroke-width:2px,color:#f8fafc;
     classDef downstream fill:#312e81,stroke:#6366f1,stroke-width:2px,color:#f8fafc;
-
     class Client,Gateway client;
     class Filter,API,UseCase,AccountAgg,TransferAgg service;
     class Redis,AccountsTable,TransfersTable,OutboxTable,WAL data;
