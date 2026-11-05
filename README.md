@@ -248,37 +248,43 @@ Tarayıcı üzerinden `http://localhost:8080/index.html` adresine girildiğinde 
 - **Docker & Docker Compose**
 - **Maven 3.9+** (veya repo içindeki `./mvnw.cmd`)
 
-### 1. Tek Komutla Altyapıyı Başlatma
-```powershell
-# PostgreSQL, Redis, Apache Kafka, Prometheus ve Grafana'yı ayağa kaldırır
-.\run.ps1 -Docker
-```
-*Veya standart komutla:*
+### 1. Tek Komutla TÜM Sistemi (Uygulama + Arayüz + Altyapı) Ayağa Kaldırma
 ```bash
-docker compose -f docker/docker-compose.yml up -d
+docker compose -f docker/docker-compose.yml up -d --build
 ```
+> **Not:** Bu tek komutla;
+> - **AegisPay Core API & Canlı Web Konsolu** (`http://localhost:8080/index.html`),
+> - **PostgreSQL 16** (`localhost:5433`),
+> - **Redis 7** (`localhost:6379`),
+> - **Apache Kafka** (`localhost:9092`),
+> - **Prometheus** (`localhost:9090`),
+> - **Grafana** (`localhost:3000`)
+> hiçbir yerel bağımlılık (Java, Maven vb.) gerektirmeden tek seferde hazır hale gelir!
 
-### 2. Uygulamayı Derleme ve Başlatma
+### 2. Alternatif: Yerel Geliştirici Modunda Çalıştırma (PowerShell)
 ```powershell
+# Altyapıyı Docker ile başlat:
+.\run.ps1 -Docker
+
+# Uygulamayı yerel JVM üzerinde başlat:
+.\run.ps1
+
 # Tüm modül testlerini koşmak için:
 .\run.ps1 -Test
 
-# Uygulamayı başlatmak için:
-.\run.ps1
-
-# (Opsiyonel) Docker olmadan sadece In-Memory H2 ile denemek için:
+# Docker olmadan sadece In-Memory H2 ile denemek için:
 .\run.ps1 -Local
 ```
 
 ### 3. Servis Portları
 | Servis | URL / Port | Kimlik Bilgileri |
 | :--- | :--- | :--- |
-| **AegisPay Konsolu** | `http://localhost:8080/index.html` | - |
+| **AegisPay Konsolu & Web UI** | `http://localhost:8080/index.html` | - |
 | **Prometheus Metrics** | `http://localhost:8080/actuator/prometheus` | - |
 | **Prometheus Server** | `http://localhost:9090` | - |
 | **Grafana Dashboard** | `http://localhost:3000` | `admin` / `admin` |
-| **PostgreSQL** | `localhost:5432` (DB: `settlement_db`) | `postgres` / `postgres` |
-| **Redis** | `localhost:6379` | - |
+| **PostgreSQL 16** | `localhost:5433` (DB: `settlement_db`) | `postgres` / `postgres` |
+| **Redis 7** | `localhost:6379` | - |
 | **Kafka Broker** | `localhost:9092` | - |
 
 ---
