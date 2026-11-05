@@ -236,8 +236,15 @@
                         <select id="simTarget" class="fintech-input w-full px-2.5 py-2 text-xs"></select>
                     </div>
                     <div>
-                        <label class="block text-xs font-medium text-slate-300 mb-1.5">Eşzamanlı Thread Sayısı</label>
-                        <input id="simCount" type="number" min="2" max="50" value="10" class="fintech-input w-full px-2.5 py-2 text-xs code-font text-white">
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label class="block text-xs font-medium text-slate-300">Eşzamanlı Thread</label>
+                            <div class="flex gap-1 text-[10px] font-mono">
+                                <button type="button" onclick="setSimThreads(10)" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300">10</button>
+                                <button type="button" onclick="setSimThreads(50)" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300">50</button>
+                                <button type="button" onclick="setSimThreads(100)" class="px-1.5 py-0.5 rounded bg-indigo-600/30 text-indigo-300 font-bold border border-indigo-500/40">100 🔥</button>
+                            </div>
+                        </div>
+                        <input id="simCount" type="number" min="2" max="200" value="100" class="fintech-input w-full px-2.5 py-2 text-xs code-font text-white font-bold" onchange="updateSimBtnText(this.value)">
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-slate-300 mb-1.5">Çekim / Thread (₺)</label>
@@ -264,7 +271,7 @@
                 <!-- Sleek Fintech Action Button -->
                 <button id="btnSimulation" onclick="runSimulation()" class="w-full py-3 px-5 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 hover:from-indigo-900 hover:to-purple-900 text-indigo-200 hover:text-white font-semibold rounded-xl border border-indigo-500/40 shadow-lg shadow-indigo-950/60 hover:shadow-indigo-500/20 transition-all duration-300 flex items-center justify-center gap-2.5 text-xs tracking-wider uppercase group">
                     <i class="fa-solid fa-bolt text-indigo-400 group-hover:text-amber-300 transition-colors"></i>
-                    <span>10 Paralel Thread'i Aynı Anda Ateşle</span>
+                    <span>100 Paralel Thread'i Aynı Anda Ateşle</span>
                 </button>
 
                 <!-- Simulation Result Dashboard -->
@@ -706,10 +713,25 @@
                 alert("Simülasyon hatası: " + err.message);
             } finally {
                 btn.disabled = false;
+                const finalCount = document.getElementById('simCount').value || 100;
                 btn.innerHTML = `
                     <i class="fa-solid fa-bolt text-indigo-400 group-hover:text-amber-300 transition-colors"></i>
-                    <span>10 Paralel Thread'i Aynı Anda Ateşle</span>
+                    <span>${finalCount} Paralel Thread'i Aynı Anda Ateşle</span>
                 `;
+            }
+        }
+
+        function setSimThreads(n) {
+            document.getElementById('simCount').value = n;
+            updateSimBtnText(n);
+        }
+
+        function updateSimBtnText(n) {
+            const btn = document.getElementById('btnSimulation');
+            if (btn) {
+                const count = n || document.getElementById('simCount').value || 100;
+                const span = btn.querySelector('span');
+                if (span) span.innerText = `${count} Paralel Thread'i Aynı Anda Ateşle`;
             }
         }
 

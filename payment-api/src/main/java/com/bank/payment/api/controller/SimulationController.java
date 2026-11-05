@@ -43,7 +43,7 @@ public class SimulationController {
     public record ConcurrencySimulationRequest(
             @NotNull UUID sourceAccountId,
             @NotNull UUID targetAccountId,
-            @Min(2) @Max(50) int concurrencyCount,
+            @Min(2) @Max(200) int concurrencyCount,
             @NotNull @DecimalMin("0.01") BigDecimal amountPerTransfer
     ) {}
 
@@ -107,9 +107,9 @@ public class SimulationController {
         }
 
         try {
-            readyLatch.await(5, TimeUnit.SECONDS);
+            readyLatch.await(10, TimeUnit.SECONDS);
             startLatch.countDown(); // Unleash all threads at the exact same instant!
-            doneLatch.await(30, TimeUnit.SECONDS);
+            doneLatch.await(60, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } finally {
