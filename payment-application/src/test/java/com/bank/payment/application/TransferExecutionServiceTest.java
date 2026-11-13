@@ -3,7 +3,10 @@ package com.bank.payment.application;
 import com.bank.payment.application.dto.InitiateTransferCommand;
 import com.bank.payment.application.dto.TransferResultDto;
 import com.bank.payment.application.port.out.*;
+import com.bank.payment.application.security.AccountAccessPolicy;
+import com.bank.payment.application.security.Requester;
 import com.bank.payment.application.service.TransferExecutionService;
+import com.bank.payment.domain.exception.AccountNotFoundException;
 import com.bank.payment.domain.model.account.Account;
 import com.bank.payment.domain.model.account.AccountId;
 import com.bank.payment.domain.model.account.AccountStatus;
@@ -34,6 +37,8 @@ class TransferExecutionServiceTest {
 
     private static final AccountId SOURCE_ID = AccountId.of(UUID.fromString("00000000-0000-0000-0000-000000000001"));
     private static final AccountId TARGET_ID = AccountId.of(UUID.fromString("00000000-0000-0000-0000-000000000002"));
+
+    private static final IdempotencyKey SCOPED_KEY = IdempotencyKey.of("CUST-1:IDEMP-KEY-1");
 
     @Mock private LoadAccountPort loadAccountPort;
     @Mock private UpdateAccountBalancePort updateAccountBalancePort;
@@ -67,12 +72,13 @@ class TransferExecutionServiceTest {
         transactionPort = new FakeTransactionPort();
         service = new TransferExecutionService(
                 loadAccountPort, updateAccountBalancePort, saveTransferPort, idempotencyPort, outboxEventPort,
-                transactionPort);
+                transactionPort, new AccountAccessPolicy());
     }
 
     private InitiateTransferCommand command() {
         return new InitiateTransferCommand(
-                IdempotencyKey.of("IDEMP-KEY-1"), SOURCE_ID, TARGET_ID, Money.of(300.00, Currency.TRY), "Test Transfer");
+                IdempotencyKey.of("IDEMP-KEY-1"), SOURCE_ID, TARGET_ID, Money.of(300.00, Currency.TRY), "Test Transfer",
+                Requester.customer("CUST-1"));
     }
 
     private void stubAccounts(Account source, Account target) {
@@ -102,8 +108,8 @@ class TransferExecutionServiceTest {
         verify(updateAccountBalancePort).updateAccount(target);
         verify(saveTransferPort).saveTransfer(any());
         verify(outboxEventPort).saveEvent(any());
-        verify(idempotencyPort).cacheResult(eq(command.idempotencyKey()), any());
-        verify(idempotencyPort).releaseLock(command.idempotencyKey());
+        verify(idempotencyPort).cacheResult(eq(SCOPED_KEY), any());
+        verify(idempotencyPort).releaseLock(SCOPED_KEY);
     }
 
     @Test
@@ -144,7 +150,7 @@ class TransferExecutionServiceTest {
                 .hasMessageContaining("simulated commit failure");
 
         verify(idempotencyPort, never()).cacheResult(any(), any());
-        verify(idempotencyPort).releaseLock(command.idempotencyKey());
+        verify(idempotencyPort).releaseLock(SCOPED_KEY);
     }
 
     @Test
@@ -165,6 +171,70 @@ class TransferExecutionServiceTest {
         assertThat(result.idempotentReplay()).isTrue();
         assertThat(transactionPort.invocations).isZero();
         verifyNoInteractions(loadAccountPort, updateAccountBalancePort, saveTransferPort, outboxEventPort);
-        verify(idempotencyPort).releaseLock(command.idempotencyKey());
+        verify(idempotencyPort).releaseLock(SCOPED_KEY);
+    }
+
+    @Test
+    @DisplayName("Transfer from an account the requester does not own is rejected as not found")
+    void shouldRejectTransferFromAccountNotOwned() {
+        Account source = new Account(SOURCE_ID, "CUST-1", Money.of(1000.00, Currency.TRY), AccountStatus.ACTIVE, 0L, "CUST-1");
+        Account target = new Account(TARGET_ID, "CUST-2", Money.of(200.00, Currency.TRY), AccountStatus.ACTIVE, 0L, "CUST-2");
+        when(idempotencyPort.getCachedResult(any())).thenReturn(Optional.empty());
+        when(idempotencyPort.acquireLock(any())).thenReturn(true);
+        stubAccounts(source, target);
+
+        InitiateTransferCommand command = new InitiateTransferCommand(
+                IdempotencyKey.of("IDEMP-KEY-1"), SOURCE_ID, TARGET_ID, Money.of(300.00, Currency.TRY), "x",
+                Requester.customer("CUST-2"));
+
+        assertThatThrownBy(() -> service.execute(command)).isInstanceOf(AccountNotFoundException.class);
+
+        verify(updateAccountBalancePort, never()).updateAccount(any());
+        verify(saveTransferPort, never()).saveTransfer(any());
+        verify(idempotencyPort, never()).cacheResult(any(), any());
+    }
+
+    @Test
+    @DisplayName("Transfer to an internal (ownerless) account is rejected as not found")
+    void shouldRejectTransferToInternalAccount() {
+        Account source = new Account(SOURCE_ID, "CUST-1", Money.of(1000.00, Currency.TRY), AccountStatus.ACTIVE, 0L, "CUST-1");
+        Account target = new Account(TARGET_ID, "INTERNAL", Money.of(200.00, Currency.TRY), AccountStatus.ACTIVE, 0L, null);
+        when(idempotencyPort.getCachedResult(any())).thenReturn(Optional.empty());
+        when(idempotencyPort.acquireLock(any())).thenReturn(true);
+        stubAccounts(source, target);
+
+        assertThatThrownBy(() -> service.execute(command())).isInstanceOf(AccountNotFoundException.class);
+
+        verify(updateAccountBalancePort, never()).updateAccount(any());
+        verify(saveTransferPort, never()).saveTransfer(any());
+        verify(idempotencyPort, never()).cacheResult(any(), any());
+    }
+
+    @Test
+    @DisplayName("Idempotency key is scoped per requester; the result exposes the raw key")
+    void shouldScopeIdempotencyKeyPerRequester() {
+        Account source = new Account(SOURCE_ID, "CUST-1", Money.of(1000.00, Currency.TRY), AccountStatus.ACTIVE, 0L, "CUST-1");
+        Account target = new Account(TARGET_ID, "CUST-2", Money.of(200.00, Currency.TRY), AccountStatus.ACTIVE, 0L, "CUST-2");
+        when(idempotencyPort.getCachedResult(any())).thenReturn(Optional.empty());
+        when(idempotencyPort.acquireLock(any())).thenReturn(true);
+        stubAccounts(source, target);
+
+        TransferResultDto result = service.execute(command());
+
+        verify(idempotencyPort, times(2)).getCachedResult(SCOPED_KEY);
+        verify(idempotencyPort).acquireLock(SCOPED_KEY);
+        verify(idempotencyPort).cacheResult(eq(SCOPED_KEY), any());
+        assertThat(result.idempotencyKey()).isEqualTo("IDEMP-KEY-1");
+        verify(saveTransferPort).saveTransfer(argThat(t -> t.getIdempotencyKey().equals(SCOPED_KEY)));
+    }
+
+    @Test
+    @DisplayName("A missing account surfaces as AccountNotFoundException")
+    void missingAccountThrowsAccountNotFound() {
+        when(idempotencyPort.getCachedResult(any())).thenReturn(Optional.empty());
+        when(idempotencyPort.acquireLock(any())).thenReturn(true);
+        when(loadAccountPort.loadAccountWithLock(any())).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.execute(command())).isInstanceOf(AccountNotFoundException.class);
     }
 }

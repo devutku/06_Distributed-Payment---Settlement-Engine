@@ -9,9 +9,11 @@ import com.bank.payment.application.port.in.GetAccountStatementQuery;
 import com.bank.payment.application.port.in.InitiateTransferUseCase;
 import com.bank.payment.application.port.out.*;
 import com.bank.payment.domain.event.TransferSettledEvent;
-import com.bank.payment.domain.exception.AccountInactiveException;
+import com.bank.payment.application.security.AccountAccessPolicy;
+import com.bank.payment.domain.exception.AccountNotFoundException;
 import com.bank.payment.domain.model.account.Account;
 import com.bank.payment.domain.model.account.AccountId;
+import com.bank.payment.domain.model.transfer.IdempotencyKey;
 import com.bank.payment.domain.model.transfer.Transfer;
 import com.bank.payment.domain.model.transfer.TransferId;
 
@@ -28,6 +30,7 @@ public class TransferExecutionService implements InitiateTransferUseCase, GetAcc
     private final IdempotencyPort idempotencyPort;
     private final OutboxEventPort outboxEventPort;
     private final TransactionPort transactionPort;
+    private final AccountAccessPolicy accessPolicy;
 
     public TransferExecutionService(
             LoadAccountPort loadAccountPort,
@@ -35,13 +38,15 @@ public class TransferExecutionService implements InitiateTransferUseCase, GetAcc
             SaveTransferPort saveTransferPort,
             IdempotencyPort idempotencyPort,
             OutboxEventPort outboxEventPort,
-            TransactionPort transactionPort) {
+            TransactionPort transactionPort,
+            AccountAccessPolicy accessPolicy) {
         this.loadAccountPort = Objects.requireNonNull(loadAccountPort);
         this.updateAccountBalancePort = Objects.requireNonNull(updateAccountBalancePort);
         this.saveTransferPort = Objects.requireNonNull(saveTransferPort);
         this.idempotencyPort = Objects.requireNonNull(idempotencyPort);
         this.outboxEventPort = Objects.requireNonNull(outboxEventPort);
         this.transactionPort = Objects.requireNonNull(transactionPort);
+        this.accessPolicy = Objects.requireNonNull(accessPolicy);
     }
 
     /**
@@ -54,35 +59,38 @@ public class TransferExecutionService implements InitiateTransferUseCase, GetAcc
      */
     @Override
     public TransferResultDto execute(InitiateTransferCommand command) {
+        // Keys are scoped per requester so two users can never collide on (or replay) each other's key
+        IdempotencyKey scopedKey = command.requester().scope(command.idempotencyKey());
+
         // 1. Idempotency Fast-Path: Check if already completed
-        Optional<TransferResultDto> cached = idempotencyPort.getCachedResult(command.idempotencyKey());
+        Optional<TransferResultDto> cached = idempotencyPort.getCachedResult(scopedKey);
         if (cached.isPresent()) {
             return asReplay(cached.get());
         }
 
         // 2. In-flight Lock: Prevent concurrent identical requests
-        boolean acquired = idempotencyPort.acquireLock(command.idempotencyKey());
+        boolean acquired = idempotencyPort.acquireLock(scopedKey);
         if (!acquired) {
-            throw new IllegalStateException("Aynı Idempotency-Key ile devam eden bir işlem mevcut: " + command.idempotencyKey());
+            throw new IllegalStateException("Aynı Idempotency-Key ile devam eden bir işlem mevcut: " + scopedKey);
         }
 
         try {
             // Re-check under the lock: an identical request may have committed and
             // released the lock between our first cache check and acquireLock.
-            Optional<TransferResultDto> cachedUnderLock = idempotencyPort.getCachedResult(command.idempotencyKey());
+            Optional<TransferResultDto> cachedUnderLock = idempotencyPort.getCachedResult(scopedKey);
             if (cachedUnderLock.isPresent()) {
                 return asReplay(cachedUnderLock.get());
             }
 
             // 3-7. All balance, transfer, ledger and outbox writes in one transaction.
             // Returns only after COMMIT; any failure propagates and nothing is cached.
-            TransferResultDto result = transactionPort.executeInNewTransaction(() -> settleTransfer(command));
+            TransferResultDto result = transactionPort.executeInNewTransaction(() -> settleTransfer(command, scopedKey));
 
             // 8. Cache the response only now that the transfer is durably committed
-            idempotencyPort.cacheResult(command.idempotencyKey(), result);
+            idempotencyPort.cacheResult(scopedKey, result);
             return result;
         } finally {
-            idempotencyPort.releaseLock(command.idempotencyKey());
+            idempotencyPort.releaseLock(scopedKey);
         }
     }
 
@@ -101,7 +109,7 @@ public class TransferExecutionService implements InitiateTransferUseCase, GetAcc
         );
     }
 
-    private TransferResultDto settleTransfer(InitiateTransferCommand command) {
+    private TransferResultDto settleTransfer(InitiateTransferCommand command, IdempotencyKey scopedKey) {
         // 3. Deterministic Locking Order: Always lock lower AccountId first
         AccountId sourceId = command.sourceAccountId();
         AccountId targetId = command.targetAccountId();
@@ -110,12 +118,16 @@ public class TransferExecutionService implements InitiateTransferUseCase, GetAcc
         AccountId secondId = sourceId.compareTo(targetId) < 0 ? targetId : sourceId;
 
         Account firstLocked = loadAccountPort.loadAccountWithLock(firstId)
-                .orElseThrow(() -> new IllegalArgumentException("Hesap bulunamadı: " + firstId));
+                .orElseThrow(() -> new AccountNotFoundException(firstId));
         Account secondLocked = loadAccountPort.loadAccountWithLock(secondId)
-                .orElseThrow(() -> new IllegalArgumentException("Hesap bulunamadı: " + secondId));
+                .orElseThrow(() -> new AccountNotFoundException(secondId));
 
         Account sourceAccount = sourceId.equals(firstId) ? firstLocked : secondLocked;
         Account targetAccount = targetId.equals(firstId) ? firstLocked : secondLocked;
+
+        // Ownership checks (both accounts locked); failures look like "not found"
+        accessPolicy.assertCanMoveFundsFrom(command.requester(), sourceAccount);
+        accessPolicy.assertCanReceive(command.requester(), targetAccount);
 
         // 4. Domain Business Logic: Debit and Credit
         sourceAccount.debit(command.amount());
@@ -128,7 +140,7 @@ public class TransferExecutionService implements InitiateTransferUseCase, GetAcc
         // 6. Record Transfer & Double-Entry Ledger
         Transfer transfer = new Transfer(
                 TransferId.generate(),
-                command.idempotencyKey(),
+                scopedKey,
                 sourceAccount.getId(),
                 targetAccount.getId(),
                 command.amount()

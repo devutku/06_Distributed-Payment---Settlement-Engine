@@ -29,7 +29,7 @@ public class TransferJpaEntity {
     @Column(name = "id", nullable = false)
     private UUID id;
 
-    @Column(name = "idempotency_key", nullable = false, unique = true, length = 120)
+    @Column(name = "idempotency_key", nullable = false, unique = true, length = 200)
     private String idempotencyKey;
 
     @Column(name = "source_account_id", nullable = false)
