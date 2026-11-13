@@ -12,13 +12,15 @@ public class Account {
     private Money balance;
     private AccountStatus status;
     private final Long version; // Optimistic locking için sürüm bilgisi
+    private final String ownerCustomerId; // null: bankaya ait iç hesap
 
-    public Account(AccountId id, String customerNumber, Money balance, AccountStatus status, Long version) {
+    public Account(AccountId id, String customerNumber, Money balance, AccountStatus status, Long version, String ownerCustomerId) {
         this.id = Objects.requireNonNull(id, "AccountId null olamaz");
         this.customerNumber = Objects.requireNonNull(customerNumber, "CustomerNumber null olamaz");
         this.balance = Objects.requireNonNull(balance, "Balance null olamaz");
         this.status = Objects.requireNonNull(status, "Status null olamaz");
         this.version = version;
+        this.ownerCustomerId = ownerCustomerId;
     }
 
     public void debit(Money amount) {
@@ -45,5 +47,10 @@ public class Account {
     public Money getBalance() { return balance; }
     public AccountStatus getStatus() { return status; }
     public Long getVersion() { return version; }
+    public String getOwnerCustomerId() { return ownerCustomerId; }
+
+    public boolean isOwnedBy(String customerId) {
+        return customerId != null && customerId.equals(ownerCustomerId);
+    }
 }
 

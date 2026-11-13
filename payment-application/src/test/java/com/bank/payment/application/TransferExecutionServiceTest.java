@@ -83,8 +83,8 @@ class TransferExecutionServiceTest {
     @Test
     @DisplayName("Should execute transfer successfully and enforce lock ordering")
     void shouldExecuteTransferSuccessfully() {
-        Account source = new Account(SOURCE_ID, "CUST-1", Money.of(1000.00, Currency.TRY), AccountStatus.ACTIVE, 0L);
-        Account target = new Account(TARGET_ID, "CUST-2", Money.of(200.00, Currency.TRY), AccountStatus.ACTIVE, 0L);
+        Account source = new Account(SOURCE_ID, "CUST-1", Money.of(1000.00, Currency.TRY), AccountStatus.ACTIVE, 0L, "CUST-1");
+        Account target = new Account(TARGET_ID, "CUST-2", Money.of(200.00, Currency.TRY), AccountStatus.ACTIVE, 0L, "CUST-2");
 
         when(idempotencyPort.getCachedResult(any())).thenReturn(Optional.empty());
         when(idempotencyPort.acquireLock(any())).thenReturn(true);
@@ -109,8 +109,8 @@ class TransferExecutionServiceTest {
     @Test
     @DisplayName("Idempotent response is cached only after the transaction has committed")
     void shouldCacheResultOnlyAfterCommit() {
-        Account source = new Account(SOURCE_ID, "CUST-1", Money.of(1000.00, Currency.TRY), AccountStatus.ACTIVE, 0L);
-        Account target = new Account(TARGET_ID, "CUST-2", Money.of(200.00, Currency.TRY), AccountStatus.ACTIVE, 0L);
+        Account source = new Account(SOURCE_ID, "CUST-1", Money.of(1000.00, Currency.TRY), AccountStatus.ACTIVE, 0L, "CUST-1");
+        Account target = new Account(TARGET_ID, "CUST-2", Money.of(200.00, Currency.TRY), AccountStatus.ACTIVE, 0L, "CUST-2");
 
         when(idempotencyPort.getCachedResult(any())).thenReturn(Optional.empty());
         when(idempotencyPort.acquireLock(any())).thenReturn(true);
@@ -130,8 +130,8 @@ class TransferExecutionServiceTest {
     @Test
     @DisplayName("A failed commit leaves no cached 'success' response behind and still releases the lock")
     void shouldNotCacheResultWhenCommitFails() {
-        Account source = new Account(SOURCE_ID, "CUST-1", Money.of(1000.00, Currency.TRY), AccountStatus.ACTIVE, 0L);
-        Account target = new Account(TARGET_ID, "CUST-2", Money.of(200.00, Currency.TRY), AccountStatus.ACTIVE, 0L);
+        Account source = new Account(SOURCE_ID, "CUST-1", Money.of(1000.00, Currency.TRY), AccountStatus.ACTIVE, 0L, "CUST-1");
+        Account target = new Account(TARGET_ID, "CUST-2", Money.of(200.00, Currency.TRY), AccountStatus.ACTIVE, 0L, "CUST-2");
 
         when(idempotencyPort.getCachedResult(any())).thenReturn(Optional.empty());
         when(idempotencyPort.acquireLock(any())).thenReturn(true);
