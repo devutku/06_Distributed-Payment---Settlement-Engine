@@ -1,6 +1,7 @@
 # 💳 Mutabık | Enterprise Distributed Payment & Settlement Engine
 ### Multi-Module Clean Architecture &bull; Double-Entry Bookkeeping &bull; Transactional Outbox &bull; Idempotent API &bull; Deadlock-Free Concurrency
 
+[![CI](https://github.com/devutku/06_Distributed-Payment---Settlement-Engine/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/devutku/06_Distributed-Payment---Settlement-Engine/actions/workflows/ci.yml)
 [![Java 21](https://img.shields.io/badge/Java-21_LTS-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)](https://openjdk.org/)
 [![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.3.5-6DB33F?style=for-the-badge&logo=spring-boot&logoColor=white)](https://spring.io/)
 [![Clean Architecture](https://img.shields.io/badge/Architecture-Clean%20%2F%20Hexagonal-blue?style=for-the-badge)](https://blog.cleancoder.com/)

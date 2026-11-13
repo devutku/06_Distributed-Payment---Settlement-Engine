@@ -1,0 +1,6 @@
+# Keep shell scripts runnable on Linux CI runners regardless of the local core.autocrlf setting
+mvnw text eol=lf
+*.sh text eol=lf
+# Windows scripts keep CRLF
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
