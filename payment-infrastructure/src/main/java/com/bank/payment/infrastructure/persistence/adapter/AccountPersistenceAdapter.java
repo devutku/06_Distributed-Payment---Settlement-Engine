@@ -1,5 +1,6 @@
 package com.bank.payment.infrastructure.persistence.adapter;
 
+import com.bank.payment.application.port.out.AccountOwnership;
 import com.bank.payment.application.port.out.LoadAccountPort;
 import com.bank.payment.application.port.out.UpdateAccountBalancePort;
 import com.bank.payment.domain.model.account.Account;
@@ -24,6 +25,12 @@ public class AccountPersistenceAdapter implements LoadAccountPort, UpdateAccount
     public Optional<Account> loadAccount(AccountId id) {
         return accountRepository.findById(id.value())
                 .map(AccountJpaEntity::toDomain);
+    }
+
+    @Override
+    public Optional<AccountOwnership> loadOwnership(AccountId id) {
+        return accountRepository.findOwnershipById(id.value())
+                .map(p -> new AccountOwnership(id, p.getOwnerCustomerId(), p.getStatus()));
     }
 
     @Override

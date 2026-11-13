@@ -110,9 +110,11 @@ public class TransferExecutionService implements InitiateTransferUseCase {
 
         // Source existence + ownership is decided first (no lock, counterparty untouched), so a
         // not-owned source and a non-existent source fail identically even if the target is missing.
-        Account sourcePreview = loadAccountPort.loadAccount(sourceId)
+        // Uses a scalar ownership view: loading the full entity here would put a stale balance/version
+        // into the persistence context and defeat the pessimistic lock below.
+        AccountOwnership sourceOwnership = loadAccountPort.loadOwnership(sourceId)
                 .orElseThrow(() -> new AccountNotFoundException(sourceId));
-        accessPolicy.assertCanMoveFundsFrom(command.requester(), sourcePreview);
+        accessPolicy.assertCanMoveFundsFrom(command.requester(), sourceOwnership);
 
         // 3. Deterministic Locking Order: Always lock lower AccountId first
 
