@@ -82,8 +82,10 @@ class TransferExecutionServiceTest {
     }
 
     private void stubAccounts(Account source, Account target) {
-        when(loadAccountPort.loadAccountWithLock(SOURCE_ID)).thenReturn(Optional.of(source));
-        when(loadAccountPort.loadAccountWithLock(TARGET_ID)).thenReturn(Optional.of(target));
+        // Source is previewed (no lock) for the ownership decision, then both are locked in id order
+        lenient().when(loadAccountPort.loadAccount(SOURCE_ID)).thenReturn(Optional.of(source));
+        lenient().when(loadAccountPort.loadAccountWithLock(SOURCE_ID)).thenReturn(Optional.of(source));
+        lenient().when(loadAccountPort.loadAccountWithLock(TARGET_ID)).thenReturn(Optional.of(target));
     }
 
     @Test
@@ -233,8 +235,26 @@ class TransferExecutionServiceTest {
     void missingAccountThrowsAccountNotFound() {
         when(idempotencyPort.getCachedResult(any())).thenReturn(Optional.empty());
         when(idempotencyPort.acquireLock(any())).thenReturn(true);
-        when(loadAccountPort.loadAccountWithLock(any())).thenReturn(Optional.empty());
+        when(loadAccountPort.loadAccount(any())).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.execute(command())).isInstanceOf(AccountNotFoundException.class);
+    }
+
+    @Test
+    @DisplayName("Not-owned source is decided before the counterparty is loaded or locked")
+    void notOwnedSourceFailsBeforeTargetIsTouched() {
+        Account source = new Account(SOURCE_ID, "CUST-1", Money.of(1000.00, Currency.TRY), AccountStatus.ACTIVE, 0L, "CUST-1");
+        when(idempotencyPort.getCachedResult(any())).thenReturn(Optional.empty());
+        when(idempotencyPort.acquireLock(any())).thenReturn(true);
+        when(loadAccountPort.loadAccount(SOURCE_ID)).thenReturn(Optional.of(source));
+
+        InitiateTransferCommand command = new InitiateTransferCommand(
+                IdempotencyKey.of("IDEMP-KEY-1"), SOURCE_ID, TARGET_ID, Money.of(300.00, Currency.TRY), "x",
+                Requester.customer("CUST-2"));
+
+        assertThatThrownBy(() -> service.execute(command)).isInstanceOf(AccountNotFoundException.class);
+
+        verify(loadAccountPort, never()).loadAccount(TARGET_ID);
+        verify(loadAccountPort, never()).loadAccountWithLock(any());
     }
 }

@@ -16,7 +16,6 @@ import com.bank.payment.application.security.Requester;
 import com.bank.payment.domain.exception.AccountNotFoundException;
 import com.bank.payment.domain.model.account.Account;
 import com.bank.payment.domain.model.account.AccountId;
-import com.bank.payment.domain.model.account.AccountStatus;
 
 import java.util.List;
 import java.util.Objects;
@@ -78,8 +77,7 @@ public class AccountQueryService implements GetAccountBalanceQuery, GetAccountSt
     @Override
     public List<RecipientDto> getRecipients(Requester requester) {
         return loadAccountPort.loadAllAccounts().stream()
-                .filter(a -> a.getOwnerCustomerId() != null)
-                .filter(a -> a.getStatus() == AccountStatus.ACTIVE)
+                .filter(a -> accessPolicy.canReceive(requester, a))
                 .filter(a -> !(requester.isCustomer() && a.isOwnedBy(requester.customerId())))
                 .map(this::toRecipientDto)
                 .toList();

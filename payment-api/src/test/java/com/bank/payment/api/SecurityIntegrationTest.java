@@ -343,9 +343,11 @@ class SecurityIntegrationTest {
                         .header("X-Signature", "deadbeef")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.title").value("Invalid Webhook Signature"))
                 .andReturn();
 
-        assertThat(result.getResponse().getStatus()).isNotEqualTo(200);
         assertThat(result.getResponse().getContentAsString()).doesNotContain("SETTLED");
         assertThat(accountRepository.findById(UUID.fromString(ALICE_ACC)).orElseThrow().getBalance())
                 .isEqualByComparingTo(before);

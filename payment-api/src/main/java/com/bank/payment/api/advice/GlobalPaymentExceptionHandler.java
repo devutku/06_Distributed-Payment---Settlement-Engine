@@ -4,6 +4,7 @@ import com.bank.payment.domain.exception.AccountInactiveException;
 import com.bank.payment.domain.exception.AccountNotFoundException;
 import com.bank.payment.domain.exception.InsufficientFundsException;
 import com.bank.payment.domain.exception.InvalidTransferAmountException;
+import com.bank.payment.application.security.InvalidWebhookSignatureException;
 import jakarta.servlet.ServletException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,13 +12,16 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.ErrorResponse;
+import org.springframework.web.ErrorResponseException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.net.URI;
 import java.time.Instant;
@@ -65,12 +69,33 @@ public class GlobalPaymentExceptionHandler {
 
     @ExceptionHandler(AccountNotFoundException.class)
     public ResponseEntity<ProblemDetail> handleAccountNotFound(AccountNotFoundException ex) {
-        log.warn("Account not found: {}", ex.getMessage());
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+        // The id goes to the server log only; the body is constant so 404 never reveals account existence.
+        log.warn("Account not found: {}", ex.getAccountId());
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, "Hesap bulunamadı");
         problem.setTitle("Account Not Found");
         problem.setType(URI.create("https://bank.com/errors/account-not-found"));
         problem.setProperty("timestamp", Instant.now());
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(problem);
+    }
+
+    @ExceptionHandler(InvalidWebhookSignatureException.class)
+    public ResponseEntity<ProblemDetail> handleInvalidWebhookSignature(InvalidWebhookSignatureException ex) {
+        log.warn("Invalid webhook signature rejected");
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, "Webhook imzasi gecersiz");
+        problem.setTitle("Invalid Webhook Signature");
+        problem.setType(URI.create("https://bank.com/errors/invalid-webhook-signature"));
+        problem.setProperty("timestamp", Instant.now());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(problem);
+    }
+
+    @ExceptionHandler({HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class})
+    public ResponseEntity<ProblemDetail> handleUnreadableRequest(Exception ex) {
+        log.warn("Unreadable request: {}", ex.getMessage());
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Istek govdesi veya parametresi okunamadi");
+        problem.setTitle("Bad Request");
+        problem.setType(URI.create("https://bank.com/errors/bad-request"));
+        problem.setProperty("timestamp", Instant.now());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(problem);
     }
 
     /** Raised inside the controller layer (e.g. RequesterResolver); the filter chain never sees it. */
@@ -109,6 +134,14 @@ public class GlobalPaymentExceptionHandler {
                     .body(problem);
         }
         return handleGeneral(ex);
+    }
+
+    /** ErrorResponseException and ResponseStatusException keep their own status. */
+    @ExceptionHandler(ErrorResponseException.class)
+    public ResponseEntity<ProblemDetail> handleErrorResponse(ErrorResponseException ex) {
+        ProblemDetail problem = ex.getBody();
+        problem.setProperty("timestamp", Instant.now());
+        return ResponseEntity.status(ex.getStatusCode()).headers(ex.getHeaders()).body(problem);
     }
 
     @ExceptionHandler(IllegalStateException.class)

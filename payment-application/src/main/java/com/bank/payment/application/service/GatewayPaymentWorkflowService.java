@@ -4,6 +4,7 @@ import com.bank.payment.application.port.in.InitiateGatewayPaymentUseCase;
 import com.bank.payment.application.port.in.ProcessPaymentWebhookUseCase;
 import com.bank.payment.application.port.out.*;
 import com.bank.payment.application.security.AccountAccessPolicy;
+import com.bank.payment.application.security.InvalidWebhookSignatureException;
 import com.bank.payment.domain.exception.AccountNotFoundException;
 import com.bank.payment.domain.model.transfer.IdempotencyKey;
 import com.bank.payment.domain.event.PaymentCapturedEvent;
@@ -54,11 +55,13 @@ public class GatewayPaymentWorkflowService implements InitiateGatewayPaymentUseC
 
         try {
             // Ownership checks run before anything reaches the gateway or the database
+            // Source existence + ownership is decided before the counterparty is even loaded, so a
+            // not-owned source and a non-existent source are indistinguishable to the caller.
             Account customerAccount = loadAccountPort.loadAccount(command.customerAccountId())
                     .orElseThrow(() -> new AccountNotFoundException(command.customerAccountId()));
+            accessPolicy.assertCanMoveFundsFrom(command.requester(), customerAccount);
             Account merchantAccount = loadAccountPort.loadAccount(command.merchantAccountId())
                     .orElseThrow(() -> new AccountNotFoundException(command.merchantAccountId()));
-            accessPolicy.assertCanMoveFundsFrom(command.requester(), customerAccount);
             accessPolicy.assertCanReceive(command.requester(), merchantAccount);
 
             // Step 2: Create PENDING Record in SQL Database
@@ -114,7 +117,7 @@ public class GatewayPaymentWorkflowService implements InitiateGatewayPaymentUseC
         // Step 5: Verify Webhook Signature (HMAC-SHA256)
         boolean validSignature = paymentGatewayPort.verifySignature(command.payload(), command.signatureHeader());
         if (!validSignature) {
-            throw new SecurityException("Webhook HMAC imza doğrulaması başarısız! Sahte webhook isteği engellendi.");
+            throw new InvalidWebhookSignatureException("Webhook HMAC imza doğrulaması başarısız! Sahte webhook isteği engellendi.");
         }
 
         // Load Transfer by external reference ID under a row lock.

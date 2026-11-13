@@ -1,5 +1,6 @@
 package com.bank.payment.api.controller;
 
+import com.bank.payment.api.filter.IdempotencyFilter;
 import com.bank.payment.api.security.RequesterResolver;
 import com.bank.payment.application.port.in.InitiateGatewayPaymentUseCase;
 import com.bank.payment.domain.model.account.AccountId;
@@ -47,6 +48,9 @@ public class GatewayPaymentController {
             @Valid @RequestBody GatewayPayRequest req,
             Authentication auth) {
 
+        if (idempotencyKeyHeader != null && idempotencyKeyHeader.length() > IdempotencyFilter.MAX_KEY_LENGTH) {
+            throw new IllegalArgumentException("'Idempotency-Key' en fazla 100 karakter olabilir.");
+        }
         String key = idempotencyKeyHeader != null ? idempotencyKeyHeader : UUID.randomUUID().toString();
         Currency curr = req.currency() != null ? req.currency() : Currency.TRY;
         PaymentGatewayType gwType = req.gatewayType() != null ? req.gatewayType() : PaymentGatewayType.STRIPE;
