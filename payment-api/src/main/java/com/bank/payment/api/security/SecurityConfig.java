@@ -77,7 +77,7 @@ public class SecurityConfig {
         return new DelegatingOAuth2TokenValidator<>(JwtValidators.createDefaultWithIssuer(issuer), audienceValidator);
     }
 
-    private JwtAuthenticationConverter jwtAuthenticationConverter() {
+    public static JwtAuthenticationConverter jwtAuthenticationConverter() {
         JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
         converter.setJwtGrantedAuthoritiesConverter(new KeycloakRoleConverter());
         return converter;
