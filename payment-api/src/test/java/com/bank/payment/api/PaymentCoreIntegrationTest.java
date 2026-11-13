@@ -2,8 +2,10 @@ package com.bank.payment.api;
 
 import com.bank.payment.api.controller.GatewayPaymentController;
 import com.bank.payment.api.controller.TransferController;
+import com.bank.payment.application.port.in.ProcessPaymentWebhookUseCase;
 import com.bank.payment.domain.model.shared.Currency;
 import com.bank.payment.domain.model.transfer.PaymentGatewayType;
+import com.bank.payment.infrastructure.gateway.MockPaymentGatewayAdapter;
 import com.bank.payment.infrastructure.persistence.repository.SpringDataAccountRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
@@ -26,8 +28,16 @@ import org.springframework.test.web.servlet.MvcResult;
 import java.math.BigDecimal;
 import java.util.Map;
 import java.util.UUID;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -64,6 +74,12 @@ class PaymentCoreIntegrationTest {
 
     @Autowired
     private SpringDataAccountRepository accountRepository;
+
+    @Autowired
+    private ProcessPaymentWebhookUseCase processPaymentWebhookUseCase;
+
+    @Autowired
+    private MockPaymentGatewayAdapter gatewayAdapter;
 
     @Test
     @DisplayName("Transfer should succeed and produce SETTLED status")
@@ -183,6 +199,62 @@ class PaymentCoreIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("SETTLED"))
                 .andExpect(jsonPath("$.processed").value(true));
+    }
+
+    @Test
+    @DisplayName("Concurrent duplicate webhooks for one payment debit the customer exactly once")
+    void testConcurrentDuplicateWebhooksDebitOnce() throws Exception {
+        UUID aliceId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+        UUID bobId = UUID.fromString("22222222-2222-2222-2222-222222222222");
+        BigDecimal amount = new BigDecimal("75.00");
+
+        GatewayPaymentController.GatewayPayRequest payReq = new GatewayPaymentController.GatewayPayRequest(
+                aliceId, bobId, amount, Currency.TRY, PaymentGatewayType.STRIPE, "alice@example.com", "Order #DUP");
+
+        MvcResult authorized = mockMvc.perform(post("/api/v1/gateway/pay")
+                        .header("Idempotency-Key", "PSP-DUP-" + UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payReq)))
+                .andExpect(status().isOk())
+                .andReturn();
+        String externalRef = (String) objectMapper.readValue(authorized.getResponse().getContentAsString(), Map.class)
+                .get("externalReferenceId");
+
+        BigDecimal aliceBefore = accountRepository.findById(aliceId).orElseThrow().getBalance();
+
+        // Same signed webhook delivered by the PSP several times at once
+        String payload = objectMapper.writeValueAsString(Map.of(
+                "eventType", "payment_intent.succeeded",
+                "externalReferenceId", externalRef,
+                "amount", amount,
+                "currency", "TRY"));
+        String signature = gatewayAdapter.computeHmacSha256(payload, gatewayAdapter.getWebhookSecret());
+        ProcessPaymentWebhookUseCase.WebhookCommand command = new ProcessPaymentWebhookUseCase.WebhookCommand(
+                payload, signature, "payment_intent.succeeded", externalRef, amount, "TRY");
+
+        int deliveries = 8;
+        ExecutorService pool = Executors.newFixedThreadPool(deliveries);
+        CountDownLatch start = new CountDownLatch(1);
+        List<Future<ProcessPaymentWebhookUseCase.WebhookResult>> results = new ArrayList<>();
+        try {
+            for (int i = 0; i < deliveries; i++) {
+                results.add(pool.submit(() -> {
+                    start.await();
+                    return processPaymentWebhookUseCase.processWebhook(command);
+                }));
+            }
+            start.countDown();
+            for (Future<ProcessPaymentWebhookUseCase.WebhookResult> f : results) {
+                assertThat(f.get(30, TimeUnit.SECONDS).processed()).isTrue();
+            }
+        } finally {
+            pool.shutdownNow();
+        }
+
+        BigDecimal aliceAfter = accountRepository.findById(aliceId).orElseThrow().getBalance();
+        assertThat(aliceBefore.subtract(aliceAfter))
+                .as("customer must be debited exactly once")
+                .isEqualByComparingTo(amount);
     }
 
     @Test

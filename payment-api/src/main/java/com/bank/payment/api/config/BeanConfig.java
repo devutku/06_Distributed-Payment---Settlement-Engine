@@ -15,13 +15,15 @@ public class BeanConfig {
             UpdateAccountBalancePort updateAccountBalancePort,
             SaveTransferPort saveTransferPort,
             IdempotencyPort idempotencyPort,
-            OutboxEventPort outboxEventPort) {
+            OutboxEventPort outboxEventPort,
+            TransactionPort transactionPort) {
         return new TransferExecutionService(
                 loadAccountPort,
                 updateAccountBalancePort,
                 saveTransferPort,
                 idempotencyPort,
-                outboxEventPort
+                outboxEventPort,
+                transactionPort
         );
     }
 

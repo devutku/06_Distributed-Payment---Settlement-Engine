@@ -15,7 +15,6 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.http.ResponseEntity;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -53,7 +52,6 @@ public class TransferController {
             String description
     ) {}
 
-    @Transactional
     @PostMapping
     public ResponseEntity<TransferResultDto> transfer(
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKeyHeader,
