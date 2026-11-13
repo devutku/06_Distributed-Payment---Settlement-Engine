@@ -27,7 +27,9 @@ import org.springframework.http.MediaType;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
 import org.springframework.kafka.support.SendResult;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -45,6 +47,7 @@ import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -70,6 +73,20 @@ class PaymentCoreIntegrationTest {
                 }
             };
         }
+    }
+
+    private static RequestPostProcessor alice() {
+        return jwt().jwt(j -> j.claim("customer_id", "CUST-ALICE"))
+                .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"));
+    }
+
+    private static RequestPostProcessor charlie() {
+        return jwt().jwt(j -> j.claim("customer_id", "CUST-CHARLIE"))
+                .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"));
+    }
+
+    private static RequestPostProcessor admin() {
+        return jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"));
     }
 
     @Autowired
@@ -116,7 +133,7 @@ class PaymentCoreIntegrationTest {
         String idempotencyKey = "TEST-IDEMP-" + UUID.randomUUID();
 
         // 1. Initial Transfer Request
-        mockMvc.perform(post("/api/v1/transfers")
+        mockMvc.perform(post("/api/v1/transfers").with(alice())
                         .header("Idempotency-Key", idempotencyKey)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
@@ -125,7 +142,7 @@ class PaymentCoreIntegrationTest {
                 .andExpect(jsonPath("$.idempotentReplay").value(false));
 
         // 2. Exact Duplicate Replay: Should return cached result with idempotentReplay=true
-        mockMvc.perform(post("/api/v1/transfers")
+        mockMvc.perform(post("/api/v1/transfers").with(alice())
                         .header("Idempotency-Key", idempotencyKey)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
@@ -145,7 +162,7 @@ class PaymentCoreIntegrationTest {
                 "Test"
         );
 
-        mockMvc.perform(post("/api/v1/transfers")
+        mockMvc.perform(post("/api/v1/transfers").with(alice())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isBadRequest())
@@ -166,7 +183,7 @@ class PaymentCoreIntegrationTest {
                 "Overdraft Transfer"
         );
 
-        mockMvc.perform(post("/api/v1/transfers")
+        mockMvc.perform(post("/api/v1/transfers").with(charlie())
                         .header("Idempotency-Key", "IDEMP-OVERDRAFT-" + UUID.randomUUID())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
@@ -193,7 +210,7 @@ class PaymentCoreIntegrationTest {
 
         String idempotencyKey = "PSP-IDEMP-" + UUID.randomUUID();
 
-        MvcResult result = mockMvc.perform(post("/api/v1/gateway/pay")
+        MvcResult result = mockMvc.perform(post("/api/v1/gateway/pay").with(alice())
                         .header("Idempotency-Key", idempotencyKey)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(payReq)))
@@ -207,13 +224,16 @@ class PaymentCoreIntegrationTest {
         String externalRef = (String) respMap.get("externalReferenceId");
 
         // 2. Gateway triggers CAPTURED Webhook -> Webhook Listener receives and processes
-        mockMvc.perform(post("/api/v1/webhooks/gateway/simulate")
+        String webhookPayload = objectMapper.writeValueAsString(Map.of(
+                "eventType", "payment_intent.succeeded",
+                "externalReferenceId", externalRef,
+                "amount", new BigDecimal("200.00"),
+                "currency", "TRY"));
+        String webhookSignature = gatewayAdapter.computeHmacSha256(webhookPayload, gatewayAdapter.getWebhookSecret());
+        mockMvc.perform(post("/api/v1/webhooks/gateway")
+                        .header("X-Signature", webhookSignature)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(Map.of(
-                                "externalReferenceId", externalRef,
-                                "amount", 200.00,
-                                "currency", "TRY"
-                        ))))
+                        .content(webhookPayload))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("SETTLED"))
                 .andExpect(jsonPath("$.processed").value(true));
@@ -229,7 +249,7 @@ class PaymentCoreIntegrationTest {
         GatewayPaymentController.GatewayPayRequest payReq = new GatewayPaymentController.GatewayPayRequest(
                 aliceId, bobId, amount, Currency.TRY, PaymentGatewayType.STRIPE, "alice@example.com", "Order #DUP");
 
-        MvcResult authorized = mockMvc.perform(post("/api/v1/gateway/pay")
+        MvcResult authorized = mockMvc.perform(post("/api/v1/gateway/pay").with(alice())
                         .header("Idempotency-Key", "PSP-DUP-" + UUID.randomUUID())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(payReq)))
@@ -282,7 +302,7 @@ class PaymentCoreIntegrationTest {
                 UUID.fromString("11111111-1111-1111-1111-111111111111"),
                 UUID.fromString("22222222-2222-2222-2222-222222222222"),
                 new BigDecimal("5.00"), Currency.TRY, "Outbox claim test");
-        mockMvc.perform(post("/api/v1/transfers")
+        mockMvc.perform(post("/api/v1/transfers").with(alice())
                         .header("Idempotency-Key", "OUTBOX-CLAIM-" + UUID.randomUUID())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
@@ -319,7 +339,7 @@ class PaymentCoreIntegrationTest {
     @Test
     @DisplayName("Accounts list endpoint should return seeded accounts")
     void testGetAccounts() throws Exception {
-        mockMvc.perform(get("/api/v1/accounts"))
+        mockMvc.perform(get("/api/v1/accounts").with(admin()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(4));
     }

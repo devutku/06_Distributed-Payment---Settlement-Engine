@@ -1,5 +1,6 @@
 package com.bank.payment.api.controller;
 
+import com.bank.payment.api.security.RequesterResolver;
 import com.bank.payment.application.port.in.InitiateGatewayPaymentUseCase;
 import com.bank.payment.domain.model.account.AccountId;
 import com.bank.payment.domain.model.shared.Currency;
@@ -10,6 +11,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -21,8 +23,12 @@ public class GatewayPaymentController {
 
     private final InitiateGatewayPaymentUseCase initiateGatewayPaymentUseCase;
 
-    public GatewayPaymentController(InitiateGatewayPaymentUseCase initiateGatewayPaymentUseCase) {
+    private final RequesterResolver requesterResolver;
+
+    public GatewayPaymentController(InitiateGatewayPaymentUseCase initiateGatewayPaymentUseCase,
+                                    RequesterResolver requesterResolver) {
         this.initiateGatewayPaymentUseCase = initiateGatewayPaymentUseCase;
+        this.requesterResolver = requesterResolver;
     }
 
     public record GatewayPayRequest(
@@ -38,7 +44,8 @@ public class GatewayPaymentController {
     @PostMapping("/pay")
     public ResponseEntity<InitiateGatewayPaymentUseCase.GatewayPaymentResponse> pay(
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKeyHeader,
-            @Valid @RequestBody GatewayPayRequest req) {
+            @Valid @RequestBody GatewayPayRequest req,
+            Authentication auth) {
 
         String key = idempotencyKeyHeader != null ? idempotencyKeyHeader : UUID.randomUUID().toString();
         Currency curr = req.currency() != null ? req.currency() : Currency.TRY;
@@ -51,7 +58,8 @@ public class GatewayPaymentController {
                 Money.of(req.amount(), curr),
                 gwType,
                 req.customerEmail() != null ? req.customerEmail() : "customer@example.com",
-                req.description() != null ? req.description() : "E-Commerce Checkout"
+                req.description() != null ? req.description() : "E-Commerce Checkout",
+                requesterResolver.resolve(auth)
         );
 
         InitiateGatewayPaymentUseCase.GatewayPaymentResponse response = initiateGatewayPaymentUseCase.initiatePayment(command);
