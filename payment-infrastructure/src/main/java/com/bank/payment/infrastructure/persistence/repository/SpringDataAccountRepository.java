@@ -18,6 +18,15 @@ public interface SpringDataAccountRepository extends JpaRepository<AccountJpaEnt
     @Query("SELECT a FROM AccountJpaEntity a WHERE a.id = :id")
     Optional<AccountJpaEntity> findByIdWithPessimisticLock(@Param("id") UUID id);
 
+    /** Scalar projection (not a managed entity): never populates the persistence context. */
+    @Query("SELECT a.ownerCustomerId AS ownerCustomerId, a.status AS status FROM AccountJpaEntity a WHERE a.id = :id")
+    Optional<OwnershipProjection> findOwnershipById(@Param("id") UUID id);
+
+    interface OwnershipProjection {
+        String getOwnerCustomerId();
+        com.bank.payment.domain.model.account.AccountStatus getStatus();
+    }
+
     Optional<AccountJpaEntity> findByCustomerNumber(String customerNumber);
 }
 

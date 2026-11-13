@@ -1,15 +1,27 @@
 package com.bank.payment.application.security;
 
 import com.bank.payment.domain.exception.AccountNotFoundException;
+import com.bank.payment.application.port.out.AccountOwnership;
 import com.bank.payment.domain.model.account.Account;
+import com.bank.payment.domain.model.account.AccountId;
 import com.bank.payment.domain.model.account.AccountStatus;
 
 public final class AccountAccessPolicy {
 
     public void assertCanMoveFundsFrom(Requester r, Account a) {
-        boolean allowed = r.isSystem() || (r.isCustomer() && a.isOwnedBy(r.customerId()));
+        assertCanMoveFundsFrom(r, a.getId(), a.getOwnerCustomerId());
+    }
+
+    /** Same rule as above, decided from the lightweight ownership view (pre-lock check). */
+    public void assertCanMoveFundsFrom(Requester r, AccountOwnership o) {
+        assertCanMoveFundsFrom(r, o.accountId(), o.ownerCustomerId());
+    }
+
+    private void assertCanMoveFundsFrom(Requester r, AccountId id, String ownerCustomerId) {
+        boolean allowed = r.isSystem()
+                || (r.isCustomer() && r.customerId() != null && r.customerId().equals(ownerCustomerId));
         if (!allowed) {
-            throw new AccountNotFoundException(a.getId());
+            throw new AccountNotFoundException(id);
         }
     }
 
