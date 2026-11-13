@@ -1,11 +1,7 @@
 package com.bank.payment.application.service;
 
-import com.bank.payment.application.dto.AccountBalanceDto;
-import com.bank.payment.application.dto.AccountStatementDto;
 import com.bank.payment.application.dto.InitiateTransferCommand;
 import com.bank.payment.application.dto.TransferResultDto;
-import com.bank.payment.application.port.in.GetAccountBalanceQuery;
-import com.bank.payment.application.port.in.GetAccountStatementQuery;
 import com.bank.payment.application.port.in.InitiateTransferUseCase;
 import com.bank.payment.application.port.out.*;
 import com.bank.payment.domain.event.TransferSettledEvent;
@@ -18,11 +14,10 @@ import com.bank.payment.domain.model.transfer.Transfer;
 import com.bank.payment.domain.model.transfer.TransferId;
 
 import java.time.Instant;
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-public class TransferExecutionService implements InitiateTransferUseCase, GetAccountBalanceQuery, GetAccountStatementQuery {
+public class TransferExecutionService implements InitiateTransferUseCase {
 
     private final LoadAccountPort loadAccountPort;
     private final UpdateAccountBalancePort updateAccountBalancePort;
@@ -174,45 +169,4 @@ public class TransferExecutionService implements InitiateTransferUseCase, GetAcc
                 false
         );
     }
-
-    @Override
-    public AccountBalanceDto getAccountById(AccountId accountId) {
-        Account account = loadAccountPort.loadAccount(accountId)
-                .orElseThrow(() -> new IllegalArgumentException("Hesap bulunamadı: " + accountId));
-        return toBalanceDto(account);
-    }
-
-    @Override
-    public List<AccountBalanceDto> getAllAccounts() {
-        return loadAccountPort.loadAllAccounts().stream()
-                .map(this::toBalanceDto)
-                .toList();
-    }
-
-    @Override
-    public AccountStatementDto getStatement(AccountId accountId) {
-        // Query handled through repository / port
-        Account account = loadAccountPort.loadAccount(accountId)
-                .orElseThrow(() -> new IllegalArgumentException("Hesap bulunamadı: " + accountId));
-
-        return new AccountStatementDto(
-                account.getId().value(),
-                account.getCustomerNumber(),
-                account.getBalance().amount(),
-                account.getBalance().currency().name(),
-                List.of()
-        );
-    }
-
-    private AccountBalanceDto toBalanceDto(Account account) {
-        return new AccountBalanceDto(
-                account.getId().value(),
-                account.getCustomerNumber(),
-                account.getBalance().amount(),
-                account.getBalance().currency().name(),
-                account.getStatus(),
-                account.getVersion()
-        );
-    }
 }
-

@@ -2,6 +2,7 @@ package com.bank.payment.api.config;
 
 import com.bank.payment.application.port.out.*;
 import com.bank.payment.application.security.AccountAccessPolicy;
+import com.bank.payment.application.service.AccountQueryService;
 import com.bank.payment.application.service.GatewayPaymentWorkflowService;
 import com.bank.payment.application.service.TransferExecutionService;
 import org.springframework.context.annotation.Bean;
@@ -44,6 +45,19 @@ public class BeanConfig {
                 idempotencyPort,
                 outboxEventPort,
                 paymentGatewayPort,
+                new AccountAccessPolicy()
+        );
+    }
+
+    @Bean
+    public AccountQueryService accountQueryService(
+            LoadAccountPort loadAccountPort,
+            LoadLedgerPort loadLedgerPort,
+            LoadTransfersPort loadTransfersPort) {
+        return new AccountQueryService(
+                loadAccountPort,
+                loadLedgerPort,
+                loadTransfersPort,
                 new AccountAccessPolicy()
         );
     }
