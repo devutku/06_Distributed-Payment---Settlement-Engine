@@ -3,7 +3,7 @@ version: '3.8'
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: aegispay-postgres
+    container_name: mutabik-postgres
     environment:
       POSTGRES_DB: settlement_db
       POSTGRES_USER: postgres
@@ -20,7 +20,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: aegispay-redis
+    container_name: mutabik-redis
     ports:
       - "6379:6379"
     healthcheck:
@@ -31,7 +31,7 @@ services:
 
   kafka:
     image: confluentinc/cp-kafka:7.6.1
-    container_name: aegispay-kafka
+    container_name: mutabik-kafka
     ports:
       - "9092:9092"
       - "9093:9093"
@@ -55,7 +55,7 @@ services:
     build:
       context: ..
       dockerfile: Dockerfile
-    container_name: aegispay-api
+    container_name: mutabik-api
     ports:
       - "8080:8080"
     environment:
@@ -75,7 +75,7 @@ services:
 
   prometheus:
     image: prom/prometheus:v2.53.0
-    container_name: aegispay-prometheus
+    container_name: mutabik-prometheus
     ports:
       - "9090:9090"
     volumes:
@@ -86,7 +86,7 @@ services:
 
   grafana:
     image: grafana/grafana:11.1.0
-    container_name: aegispay-grafana
+    container_name: mutabik-grafana
     ports:
       - "3000:3000"
     environment:

@@ -1,4 +1,4 @@
-# 💳 AegisPay | Enterprise Distributed Payment & Settlement Engine
+# 💳 Mutabık | Enterprise Distributed Payment & Settlement Engine
 ### Multi-Module Clean Architecture &bull; Double-Entry Bookkeeping &bull; Transactional Outbox &bull; Idempotent API &bull; Deadlock-Free Concurrency
 
 [![Java 21](https://img.shields.io/badge/Java-21_LTS-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)](https://openjdk.org/)
@@ -13,7 +13,7 @@
 
 ## 📌 Proje Genel Bakışı & Vitrin Değeri
 
-**AegisPay**, modern bankacılık, ödeme geçidi (Payment Gateway) ve fintech sistemlerinin (Adyen, Stripe, Wise, BKM vb.) yüksek hacimli ve sıfır hata toleranslı para transferi gereksinimlerine göre inşa edilmiş, **uçtan uca üretime hazır (production-grade)** bir dağıtık mutabakat ve transfer motorudur.
+**Mutabık**, modern bankacılık, ödeme geçidi (Payment Gateway) ve fintech sistemlerinin (Adyen, Stripe, Wise, BKM vb.) yüksek hacimli ve sıfır hata toleranslı para transferi gereksinimlerine göre inşa edilmiş, **uçtan uca üretime hazır (production-grade)** bir dağıtık mutabakat ve transfer motorudur.
 
 Basit CRUD veya tek veritabanlı basit transfer örneklerinin ötesine geçerek; **Clean Architecture (Hexagonal / Ports & Adapters)** prensipleriyle tasarlanmış, **PostgreSQL Row-Level Pessimistic Locking** ile yarış koşullarını (Race Conditions) ve **Deterministik Kilit Sıralaması** ile kilitlenme döngülerini (Deadlocks) matematiksel olarak imkansız kılan bir mimari sunar.
 
@@ -115,7 +115,7 @@ public class Account {
 - **Thread 2:** Bob'u kilitledi, Alice'i bekliyor.
 - **Sonuç:** PostgreSQL Deadlock Detector devreye girer ve işlemlerden birini `PSQLException: deadlock detected` ile öldürür.
 
-**AegisPay Çözümü:**
+**Mutabık Çözümü:**
 Hesapların ID değerleri sıralanır (`min(id1, id2)` ve `max(id1, id2)`). Hangi thread gelirse gelsin, her zaman önce küçük ID'li hesaba `SELECT ... FOR UPDATE` (Pessimistic Lock) atar. Dairesel bekleme (Coffman Circular Wait) matematiksel olarak imkansız hale gelir:
 
 ```java
@@ -150,7 +150,7 @@ Ağ gecikmesi, istemci zaman aşımı veya kullanıcının "Gönder" butonuna ç
 ### 3. Dual-Write Problemi ve Transactional Outbox Pattern
 **Mülakat Sorusu:** *"Para transferi veritabanına yazıldıktan hemen sonra Kafka çökerse ne olur? Veya Kafka'ya yazıldıktan sonra DB rollback olursa?"*
 
-Buna mikroservis mimarilerinde **Dual-Write Problemi** denir. AegisPay bu sorunu **Transactional Outbox Pattern** ile çözer:
+Buna mikroservis mimarilerinde **Dual-Write Problemi** denir. Mutabık bu sorunu **Transactional Outbox Pattern** ile çözer:
 1. Para transferi, bakiye güncellemeleri ve `OutboxJpaEntity` **aynı tek PostgreSQL veritabanı işleminde (`@Transactional`)** diske yazılır (ACID güvencesi).
 2. Asenkron `KafkaTransferEventPublisher` arka planda pending kayıtları okuyup Apache Kafka'nın `transfer-events` topic'ine fırlatır.
 3. Event başarıyla broker'a iletildikten sonra status `PUBLISHED` olarak güncellenir. Veri kaybı sıfırdır.
@@ -177,7 +177,7 @@ Buna mikroservis mimarilerinde **Dual-Write Problemi** denir. AegisPay bu sorunu
 ### 4. Non-Blocking Retry ve Dead Letter Queue (DLQ)
 Tüketici servislerde (ör. analitik, fraud, bildirim motoru) geçici bir hata veya zehirli mesaj (Poison Pill) oluştuğunda;
 - Standart döngü tüketiciyi kilitler (Head-of-Line Blocking).
-- AegisPay, Spring Kafka `DefaultErrorHandler` ve `DeadLetterPublishingRecoverer` kullanarak üstel geri çekilme (`ExponentialBackOff`: 1s, 2s, 4s...) uygular.
+- Mutabık, Spring Kafka `DefaultErrorHandler` ve `DeadLetterPublishingRecoverer` kullanarak üstel geri çekilme (`ExponentialBackOff`: 1s, 2s, 4s...) uygular.
 - Maksimum deneme hakkı bittiğinde mesaj otomatik olarak `transfer-events.DLT` kuyruğuna aktarılır ve operasyonel alarmlar tetiklenir.
 
 ### 5. Çift Taraflı Muhasebe Sistemi (Double-Entry Bookkeeping Ledger)
@@ -220,7 +220,7 @@ Proje, kurumsal e-ticaret ve PSP ödeme akışını (Stripe, PayPal, Razorpay) 6
 
 ## 📊 İzlenebilirlik (Observability & Metrics)
 
-AegisPay, Micrometer ve Prometheus kütüphaneleriyle üretim seviyesinde metrik üretir:
+Mutabık, Micrometer ve Prometheus kütüphaneleriyle üretim seviyesinde metrik üretir:
 - **`payment.transfer.duration`:** Transfer işlemlerinin süre dağılımı (p50, p90, p95, p99 gecikme yüzdelikleri).
 - **`payment.transfers.total`:** `status=SUCCESS` ve `status=FAILED` etiketleriyle başarılı/başarısız işlem sayaçları.
 - **Grafana Dashboard:** Önceden yapılandırılmış dashboard ile TPS, gecikmeler ve JVM heap bellek kullanımı canlı grafiklerle sunulur.
@@ -253,7 +253,7 @@ Tarayıcı üzerinden `http://localhost:8080/index.html` adresine girildiğinde 
 docker compose -f docker/docker-compose.yml up -d --build
 ```
 > **Not:** Bu tek komutla;
-> - **AegisPay Core API & Canlı Web Konsolu** (`http://localhost:8080/index.html`),
+> - **Mutabık Core API & Canlı Web Konsolu** (`http://localhost:8080/index.html`),
 > - **PostgreSQL 16** (`localhost:5433`),
 > - **Redis 7** (`localhost:6379`),
 > - **Apache Kafka** (`localhost:9092`),
@@ -279,7 +279,7 @@ docker compose -f docker/docker-compose.yml up -d --build
 ### 3. Servis Portları
 | Servis | URL / Port | Kimlik Bilgileri |
 | :--- | :--- | :--- |
-| **AegisPay Konsolu & Web UI** | `http://localhost:8080/index.html` | - |
+| **Mutabık Konsolu & Web UI** | `http://localhost:8080/index.html` | - |
 | **Prometheus Metrics** | `http://localhost:8080/actuator/prometheus` | - |
 | **Prometheus Server** | `http://localhost:9090` | - |
 | **Grafana Dashboard** | `http://localhost:3000` | `admin` / `admin` |
