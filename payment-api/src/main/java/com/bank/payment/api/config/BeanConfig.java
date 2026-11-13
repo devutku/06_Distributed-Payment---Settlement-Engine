@@ -1,6 +1,7 @@
 package com.bank.payment.api.config;
 
 import com.bank.payment.application.port.out.*;
+import com.bank.payment.application.security.AccountAccessPolicy;
 import com.bank.payment.application.service.GatewayPaymentWorkflowService;
 import com.bank.payment.application.service.TransferExecutionService;
 import org.springframework.context.annotation.Bean;
@@ -23,7 +24,8 @@ public class BeanConfig {
                 saveTransferPort,
                 idempotencyPort,
                 outboxEventPort,
-                transactionPort
+                transactionPort,
+                new AccountAccessPolicy()
         );
     }
 
