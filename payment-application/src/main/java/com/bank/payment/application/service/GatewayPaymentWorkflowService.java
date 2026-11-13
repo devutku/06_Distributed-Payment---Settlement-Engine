@@ -3,6 +3,9 @@ package com.bank.payment.application.service;
 import com.bank.payment.application.port.in.InitiateGatewayPaymentUseCase;
 import com.bank.payment.application.port.in.ProcessPaymentWebhookUseCase;
 import com.bank.payment.application.port.out.*;
+import com.bank.payment.application.security.AccountAccessPolicy;
+import com.bank.payment.domain.exception.AccountNotFoundException;
+import com.bank.payment.domain.model.transfer.IdempotencyKey;
 import com.bank.payment.domain.event.PaymentCapturedEvent;
 import com.bank.payment.domain.model.account.Account;
 import com.bank.payment.domain.model.account.AccountId;
@@ -21,6 +24,7 @@ public class GatewayPaymentWorkflowService implements InitiateGatewayPaymentUseC
     private final IdempotencyPort idempotencyPort;
     private final OutboxEventPort outboxEventPort;
     private final PaymentGatewayPort paymentGatewayPort;
+    private final AccountAccessPolicy accessPolicy;
 
     public GatewayPaymentWorkflowService(
             LoadAccountPort loadAccountPort,
@@ -28,28 +32,39 @@ public class GatewayPaymentWorkflowService implements InitiateGatewayPaymentUseC
             SaveTransferPort saveTransferPort,
             IdempotencyPort idempotencyPort,
             OutboxEventPort outboxEventPort,
-            PaymentGatewayPort paymentGatewayPort) {
+            PaymentGatewayPort paymentGatewayPort,
+            AccountAccessPolicy accessPolicy) {
         this.loadAccountPort = Objects.requireNonNull(loadAccountPort);
         this.updateAccountBalancePort = Objects.requireNonNull(updateAccountBalancePort);
         this.saveTransferPort = Objects.requireNonNull(saveTransferPort);
         this.idempotencyPort = Objects.requireNonNull(idempotencyPort);
         this.outboxEventPort = Objects.requireNonNull(outboxEventPort);
         this.paymentGatewayPort = Objects.requireNonNull(paymentGatewayPort);
+        this.accessPolicy = Objects.requireNonNull(accessPolicy);
     }
 
     @Override
     public GatewayPaymentResponse initiatePayment(GatewayPaymentCommand command) {
-        // Step 1: Idempotency in-flight lock
-        boolean acquired = idempotencyPort.acquireLock(command.idempotencyKey());
+        // Step 1: Idempotency in-flight lock (key scoped per requester)
+        IdempotencyKey scopedKey = command.requester().scope(command.idempotencyKey());
+        boolean acquired = idempotencyPort.acquireLock(scopedKey);
         if (!acquired) {
-            throw new IllegalStateException("Aynı Idempotency-Key ile devam eden bir işlem mevcut: " + command.idempotencyKey());
+            throw new IllegalStateException("Aynı Idempotency-Key ile devam eden bir işlem mevcut: " + scopedKey);
         }
 
         try {
+            // Ownership checks run before anything reaches the gateway or the database
+            Account customerAccount = loadAccountPort.loadAccount(command.customerAccountId())
+                    .orElseThrow(() -> new AccountNotFoundException(command.customerAccountId()));
+            Account merchantAccount = loadAccountPort.loadAccount(command.merchantAccountId())
+                    .orElseThrow(() -> new AccountNotFoundException(command.merchantAccountId()));
+            accessPolicy.assertCanMoveFundsFrom(command.requester(), customerAccount);
+            accessPolicy.assertCanReceive(command.requester(), merchantAccount);
+
             // Step 2: Create PENDING Record in SQL Database
             Transfer transfer = new Transfer(
                     TransferId.generate(),
-                    command.idempotencyKey(),
+                    scopedKey,
                     command.customerAccountId(),
                     command.merchantAccountId(),
                     command.amount(),
@@ -90,7 +105,7 @@ public class GatewayPaymentWorkflowService implements InitiateGatewayPaymentUseC
                     Instant.now()
             );
         } finally {
-            idempotencyPort.releaseLock(command.idempotencyKey());
+            idempotencyPort.releaseLock(scopedKey);
         }
     }
 
