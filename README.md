@@ -36,8 +36,8 @@ distributed-payment-core/
 ├── payment-domain/          # Sıfır harici kütüphane bağımlılığı (Saf Java 21, Record'lar, DDD Aggregate Root)
 ├── payment-application/     # Use Case'ler, Inbound / Outbound Portlar, CQRS komutları, Orkestratör
 ├── payment-infrastructure/  # Spring Data JPA, Redis, Kafka, Outbox ve Ledger adaptörleri
-├── payment-api/             # Spring Boot bootstrap, REST Controller'lar, IdempotencyFilter, UI Konsolu
-└── docker/                  # PostgreSQL 16, Redis 7, Kafka KRaft, Prometheus ve Grafana konfigürasyonları
+├── payment-api/             # Spring Boot bootstrap, REST Controller'lar, IdempotencyFilter, OAuth2 Resource Server, UI Konsolu
+└── docker/                  # PostgreSQL 16, Redis 7, Kafka KRaft, Keycloak (realm), Prometheus ve Grafana konfigürasyonları
 ```
 
 ### Modül Sorumlulukları
@@ -218,6 +218,75 @@ Proje, kurumsal e-ticaret ve PSP ödeme akışını (Stripe, PayPal, Razorpay) 6
 
 ---
 
+## 🔐 Kimlik Doğrulama & Yetkilendirme (Keycloak)
+
+Kimlik doğrulama (**authn**) uygulamanın dışında, **Keycloak** (OIDC kimlik sağlayıcısı) tarafından yapılır. `payment-api` bir **OAuth2 Resource Server**'dır: şifre görmez, oturum tutmaz (stateless, yalnızca `Authorization: Bearer <JWT>`); yetkilendirme (**authz**) ise uygulamanın içinde, rol ve hesap sahipliğine göre verilir.
+
+```
+[Tarayıcı / Konsol] ──(1) Giriş: Authorization Code + PKCE (S256)──► [Keycloak :8180, realm "mutabik"]
+        │                                                                   │
+        │◄──────────────(2) Access token (JWT, RS256)───────────────────────┘
+        │
+        │ (3) Authorization: Bearer <JWT>
+        ▼
+[payment-api :8080] ──(4) JWKS ile imza, iss, aud=mutabik-api, süre doğrulama──► [Keycloak (iç ağ: keycloak:8080)]
+        │ (5) realm_access.roles → CUSTOMER / ADMIN,  customer_id → hesap sahipliği
+        ▼
+   AccountAccessPolicy (sahiplik kuralı tek yerde)
+```
+
+- **Issuer:** `http://localhost:8180/realms/mutabik` (Keycloak'un hostname'i sabittir; API anahtarları iç ağdan `jwk-set-uri` ile çeker, `iss` değerini sabit beklenen değerle doğrular).
+- **Token claim'leri:** roller `realm_access.roles` içinde, müşteri kimliği `customer_id` claim'inde (kullanıcı kendisi değiştiremez, yalnızca yönetici düzenler), `aud` içinde `mutabik-api`.
+- **Keycloak adresi:** `http://localhost:8180` (konsol client'ı: `mutabik-console`, public client + PKCE). Master realm yönetim konsolu: `admin` / `admin` (yalnızca yerel geliştirme).
+
+### Demo Kullanıcıları (yalnızca yerel geliştirme için)
+| Kullanıcı | Şifre | Rol | `customer_id` |
+| :--- | :--- | :--- | :--- |
+| `alice` | `alice123` | `CUSTOMER` | `CUST-ALICE` |
+| `bob` | `bob123` | `CUSTOMER` | `CUST-BOB` |
+| `charlie` | `charlie123` | `CUSTOMER` | `CUST-CHARLIE` |
+| `admin` | `admin123` | `ADMIN` | yok |
+
+### Erişim Matrisi
+| Uç nokta | Anonim | CUSTOMER | ADMIN |
+| :--- | :---: | :--- | :--- |
+| `GET /`, `/index.html`, statik dosyalar | evet | evet | evet |
+| `POST /api/v1/webhooks/gateway` (HMAC imzası) | evet | evet | evet |
+| `GET /api/v1/accounts` | 401 | yalnız kendi hesapları | tümü |
+| `GET /api/v1/accounts/{id}`, `/{id}/statement` | 401 | yalnız kendi (değilse 404) | tümü |
+| `GET /api/v1/accounts/recipients` | 401 | evet | evet |
+| `POST /api/v1/transfers` | 401 | kaynak hesap kendisinin (değilse 404) | 403 |
+| `GET /api/v1/transfers` | 401 | yalnız kendi hesabının taraf olduğu transferler | tümü |
+| `POST /api/v1/gateway/pay` | 401 | `customerAccountId` kendisinin (değilse 404) | 403 |
+| `/api/v1/outbox/**` | 401 | 403 | evet |
+
+- **Yönetici müşteri adına para göndermez** (transfer ve gateway/pay için 403): operasyon personelinin müşteri parasını hareket ettirememesi gerçek bankacılık kuralıdır.
+- Sahibi olunmayan hesap ile var olmayan hesap aynı yanıtı (404) verir; hesap varlığı sızdırılmaz.
+- **Actuator** ayrı portta (`8081`) çalışır ve compose tarafından dışarı yayınlanmaz; Prometheus iç ağdan `payment-api:8081` üzerinden çeker. Uygulama portunda (8080) actuator yoktur.
+- Çevrimdışı mod (`.\run.ps1 -Local`, H2) güvenliği **kapatmaz**; yalnızca giriş için Keycloak container'ını başlatır. Otomatik testler Keycloak gerektirmez (taklit JWT).
+
+### Demo Araçlarının Kaldırılması & İmzalı Webhook
+`/api/v1/accounts/reset`, `/api/v1/simulation/concurrency` ve `/api/v1/webhooks/gateway/simulate` uçları kaldırıldı. Ödemeyi tamamlamanın tek yolu **HMAC-SHA256 imzalı webhook**'tur. Webhook secret'ı `PAYMENT_GATEWAY_WEBHOOK_SECRET` ortam değişkeninden okunur; koddaki varsayılan (`whsec_fintech_production_secret_key_99`) **yalnızca yerel geliştirme içindir**, gerçek bir ortamda mutlaka değiştirilmelidir.
+
+```bash
+SECRET="${PAYMENT_GATEWAY_WEBHOOK_SECRET:-whsec_fintech_production_secret_key_99}"
+BODY='{"eventType":"payment_intent.succeeded","externalReferenceId":"pi_stripe_1fa7f92b51fb40cb","amount":350.00,"currency":"TRY","timestamp":"2026-11-13T12:00:00Z"}'
+SIG=$(printf '%s' "$BODY" | openssl dgst -sha256 -hmac "$SECRET" -hex | sed 's/^.* //')
+
+curl -X POST http://localhost:8080/api/v1/webhooks/gateway \
+  -H "Content-Type: application/json" \
+  -H "X-Signature: $SIG" \
+  -d "$BODY"
+```
+> `X-Signature`, ham JSON gövdesinin küçük harfli hex HMAC-SHA256 değeridir; gövde imzalandığı haliyle (bayt bayt aynı) gönderilmelidir. `externalReferenceId`, `POST /api/v1/gateway/pay` yanıtından alınır.
+
+### Bakiyeleri Sıfırlama
+Bakiyeleri başlangıca döndürmek için veritabanı yeniden oluşturulur: `docker compose -f docker/docker-compose.yml down -v` ardından `up -d` (H2 modunda uygulamayı yeniden başlatmak yeterlidir).
+
+> **Mevcut Postgres volume'u uyarısı:** `transfers.idempotency_key` sütunu eski bir volume'da `varchar(120)` olarak kalır (`ddl-auto` mevcut sütunları genişletmez). Bu sürüme geçerken volume'u `docker compose -f docker/docker-compose.yml down -v` ile yeniden oluşturun (bu işlem bakiyeleri de sıfırlar).
+
+---
+
 ## 📊 İzlenebilirlik (Observability & Metrics)
 
 Mutabık, Micrometer ve Prometheus kütüphaneleriyle üretim seviyesinde metrik üretir:
@@ -229,13 +298,11 @@ Mutabık, Micrometer ve Prometheus kütüphaneleriyle üretim seviyesinde metrik
 
 ## 🖥️ Canlı Fintech Dark-Mode Yönetim Konsolu
 
-Tarayıcı üzerinden `http://localhost:8080/index.html` adresine girildiğinde mülakatçıya tüm sistemi canlı olarak kanıtlayabileceğiniz modern bir arayüz açılır:
+Tarayıcı üzerinden `http://localhost:8080/index.html` adresine girildiğinde (Keycloak girişi ile; demo kullanıcıları için bkz. Kimlik Doğrulama) mülakatçıya tüm sistemi canlı olarak kanıtlayabileceğiniz modern bir arayüz açılır:
 
-1. **Canlı Hesap Kartları:** Alice, Bob, Charlie ve Takas Havuzunun canlı bakiyeleri.
+1. **Canlı Hesap Kartları:** Giriş yapan kullanıcının yetkisi dahilindeki hesapların canlı bakiyeleri (müşteri yalnızca kendi hesaplarını, yönetici tümünü görür).
 2. **Idempotency Test Paneli:** Aynı Idempotency Key ile iki kez transfer yapıldığında ikinci isteğin önbellekten sıfır çift çekimle döndüğünün görsel kanıtı.
-3. **Eşzamanlılık Stres Simülatörü (The Killer Demo):**
-   - Charlie hesabında sadece **250 TL** varken, **10 eşzamanlı thread** aynı nanosaniyede **100 TL** çekmeye çalışır (İstenen: 1.000 TL).
-   - Pessimistic Row Lock sayesinde tam 2 işlem onaylanır, 8 işlem reddedilir, Charlie'nin son bakiyesi tam olarak **50.00 TL** kalır. Eksi bakiye olasılığı sıfırdır!
+3. **Eşzamanlılık Kanıtı (otomatik testler):** Canlı "stres simülatörü" ve bakiye sıfırlama uçları kaldırıldı (bkz. Kimlik Doğrulama). Eşzamanlılık garantileri artık otomatik testlerle kanıtlanır: `PaymentCoreIntegrationTest.testConcurrentDuplicateWebhooksDebitOnce` aynı webhook'un eşzamanlı tekrarlarında hesabın yalnızca bir kez borçlandırıldığını, `SecurityIntegrationTest` ise yetkisiz erişimlerin engellendiğini doğrular.
 4. **Çift Taraflı Ekstre Tablosu:** Seçilen hesabın tüm Borç/Alacak ve bakiye hareketleri.
 5. **Transactional Outbox & Kafka DLQ Monitörü:** DB'den Kafka'ya akan event'lerin canlı izlenmesi.
 
@@ -254,6 +321,7 @@ docker compose -f docker/docker-compose.yml up -d --build
 ```
 > **Not:** Bu tek komutla;
 > - **Mutabık Core API & Canlı Web Konsolu** (`http://localhost:8080/index.html`),
+> - **Keycloak 25** (`http://localhost:8180`, kimlik sağlayıcı),
 > - **PostgreSQL 16** (`localhost:5433`),
 > - **Redis 7** (`localhost:6379`),
 > - **Apache Kafka** (`localhost:9092`),
@@ -263,7 +331,7 @@ docker compose -f docker/docker-compose.yml up -d --build
 
 ### 2. Alternatif: Yerel Geliştirici Modunda Çalıştırma (PowerShell)
 ```powershell
-# Altyapıyı Docker ile başlat:
+# Altyapıyı Docker ile başlat (Keycloak dahil):
 .\run.ps1 -Docker
 
 # Uygulamayı yerel JVM üzerinde başlat:
@@ -272,15 +340,16 @@ docker compose -f docker/docker-compose.yml up -d --build
 # Tüm modül testlerini koşmak için:
 .\run.ps1 -Test
 
-# Docker olmadan sadece In-Memory H2 ile denemek için:
+# In-Memory H2 ile denemek için (giriş için yalnızca Keycloak'u compose ile başlatır):
 .\run.ps1 -Local
 ```
 
 ### 3. Servis Portları
 | Servis | URL / Port | Kimlik Bilgileri |
 | :--- | :--- | :--- |
-| **Mutabık Konsolu & Web UI** | `http://localhost:8080/index.html` | - |
-| **Prometheus Metrics** | `http://localhost:8080/actuator/prometheus` | - |
+| **Mutabık Konsolu & Web UI** | `http://localhost:8080/index.html` | Keycloak girişi (`alice` / `alice123` vb.) |
+| **Keycloak** | `http://localhost:8180` | Demo kullanıcılar: bkz. Kimlik Doğrulama; master konsol `admin` / `admin` |
+| **Actuator / Prometheus Metrics** | `8081` (dışarı yayınlanmaz, yalnızca iç ağ) | - |
 | **Prometheus Server** | `http://localhost:9090` | - |
 | **Grafana Dashboard** | `http://localhost:3000` | `admin` / `admin` |
 | **PostgreSQL 16** | `localhost:5433` (DB: `settlement_db`) | `postgres` / `postgres` |
@@ -291,9 +360,12 @@ docker compose -f docker/docker-compose.yml up -d --build
 
 ## 📡 Örnek cURL İstekleri
 
+Tüm API uçları (webhook hariç) Bearer token ister. Konsol token'ı tarayıcıda otomatik alır; aşağıdaki örneklerde `$TOKEN`, geçerli bir access token'ı temsil eder (ör. tarayıcı geliştirici araçlarından alınan Alice token'ı).
+
 ### 1. Para Transferi (Idempotency Key ile)
 ```bash
 curl -X POST http://localhost:8080/api/v1/transfers \
+  -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: tx-demo-12345" \
   -d '{
@@ -304,28 +376,19 @@ curl -X POST http://localhost:8080/api/v1/transfers \
     "description": "Fatura Ödemesi"
   }'
 ```
+> Kaynak hesap token sahibine ait değilse `404` döner.
 
 ### 2. Hesap Ekstresi (Double-Entry Ledger)
 ```bash
-curl -X GET http://localhost:8080/api/v1/accounts/11111111-1111-1111-1111-111111111111/statement
+curl -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8080/api/v1/accounts/11111111-1111-1111-1111-111111111111/statement
 ```
 
-### 3. Eşzamanlılık Stres Simülasyonu (10 Thread)
-```bash
-curl -X POST http://localhost:8080/api/v1/simulation/concurrency \
-  -H "Content-Type: application/json" \
-  -d '{
-    "sourceAccountId": "33333333-3333-3333-3333-333333333333",
-    "targetAccountId": "22222222-2222-2222-2222-222222222222",
-    "concurrencyCount": 10,
-    "amountPerTransfer": 100.00
-  }'
-```
-
-### 4. E-Ticaret Ödeme Geçidi (Stripe / PayPal Pay & Webhook)
+### 3. E-Ticaret Ödeme Geçidi (Stripe / PayPal Pay & İmzalı Webhook)
 ```bash
 # 1. Aşama: Gateway Yetkilendirmesi (Authorize)
 curl -X POST http://localhost:8080/api/v1/gateway/pay \
+  -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: psp-order-9901" \
   -d '{
@@ -338,14 +401,8 @@ curl -X POST http://localhost:8080/api/v1/gateway/pay \
     "description": "MacBook Stand Order #8821"
   }'
 
-# 2. Aşama: Otomatik İmzalanmış CAPTURED Webhook Simülasyonu
-curl -X POST http://localhost:8080/api/v1/webhooks/gateway/simulate \
-  -H "Content-Type: application/json" \
-  -d '{
-    "externalReferenceId": "pi_stripe_1fa7f92b51fb40cb",
-    "amount": 350.00,
-    "currency": "TRY"
-  }'
+# 2. Aşama: Yanıttaki externalReferenceId ile imzalı CAPTURED webhook'unu gönderin
+#    (bkz. Kimlik Doğrulama > Demo Araçlarının Kaldırılması & İmzalı Webhook)
 ```
 
 ---
@@ -380,6 +437,18 @@ Bir metot içinde hem veritabanını güncelleyip hem de Kafka'ya mesaj atmaya �
 <summary><b>5. Para hesaplamalarında neden Double veya Float kullanılmaz?</b></summary>
 <br>
 Floating-point sayı sistemleri (IEEE 754 standardı) ondalık sayıları ikilik tabanda tam olarak temsil edemez (Örn: <code>0.1 + 0.2 = 0.30000000000000004</code>). Finansal sistemlerde bir kuruşluk hata dahi yasal denetimlerde cezaya yol açar. Bu yüzden kesin hassasiyet sağlayan <code>BigDecimal</code> ve bankacılık yuvarlama standardı olan <code>RoundingMode.HALF_EVEN</code> (Banker's Rounding) zorunludur.
+</details>
+
+<details>
+<summary><b>6. IDOR / BOLA nedir ve bu projede nasıl engellenir?</b></summary>
+<br>
+IDOR (Insecure Direct Object Reference), diğer adıyla BOLA (Broken Object Level Authorization): kullanıcının başkasına ait bir nesnenin kimliğini (ör. hesap UUID'si) isteğe koyarak o nesneye erişebilmesidir. Yalnızca "giriş yapmış mı?" ve "rolü ne?" kontrolü bunu engellemez. Mutabık'ta hesaplar <code>ownerCustomerId</code> taşır; token'daki <code>customer_id</code> claim'i ile eşleşmeyen hesaplar için tek bir yerde (<code>AccountAccessPolicy</code>) erişim reddedilir ve yanıt, var olmayan hesapla aynı <code>404</code> olur (hesap varlığı sızdırılmaz). Aynı <code>Idempotency-Key</code> ile başka bir kullanıcının önbelleğe alınmış yanıtı da okunamaz.
+</details>
+
+<details>
+<summary><b>7. Neden kimlik doğrulama IdP'ye bırakıldı, yetkilendirme uygulamada tutuldu?</b></summary>
+<br>
+Şifre saklama, brute-force koruması, MFA, oturum ve anahtar rotasyonu ayrı bir uzmanlık alanıdır; Keycloak gibi olgun bir IdP'ye bırakmak saldırı yüzeyini küçültür ve "kendi auth'unu yazma" riskini ortadan kaldırır. API yalnızca imzalı, süresi geçerli, doğru <code>iss</code>/<code>aud</code> değerlerine sahip token'ı kabul eder. Buna karşın "bu kullanıcı bu hesaba dokunabilir mi?" sorusu iş alanı bilgisidir (hesap sahipliği, yöneticinin para hareket ettirememesi); bunu IdP bilemez, bu yüzden authz uygulamada, domain'e yakın tek bir politika sınıfında tutulur.
 </details>
 
 ---
