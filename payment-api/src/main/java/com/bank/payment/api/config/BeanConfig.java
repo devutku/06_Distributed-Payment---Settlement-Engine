@@ -43,7 +43,8 @@ public class BeanConfig {
                 saveTransferPort,
                 idempotencyPort,
                 outboxEventPort,
-                paymentGatewayPort
+                paymentGatewayPort,
+                new AccountAccessPolicy()
         );
     }
 }

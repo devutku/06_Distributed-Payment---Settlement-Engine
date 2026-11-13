@@ -2,7 +2,12 @@ package com.bank.payment.application;
 
 import com.bank.payment.application.port.in.ProcessPaymentWebhookUseCase.WebhookCommand;
 import com.bank.payment.application.port.in.ProcessPaymentWebhookUseCase.WebhookResult;
+import com.bank.payment.application.port.in.InitiateGatewayPaymentUseCase.GatewayPaymentCommand;
+import com.bank.payment.application.port.in.InitiateGatewayPaymentUseCase.GatewayPaymentResponse;
 import com.bank.payment.application.port.out.*;
+import com.bank.payment.application.security.AccountAccessPolicy;
+import com.bank.payment.application.security.Requester;
+import com.bank.payment.domain.exception.AccountNotFoundException;
 import com.bank.payment.application.service.GatewayPaymentWorkflowService;
 import com.bank.payment.domain.model.account.Account;
 import com.bank.payment.domain.model.account.AccountId;
@@ -23,6 +28,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
@@ -47,8 +53,8 @@ class GatewayPaymentWorkflowServiceTest {
     void setUp() {
         service = new GatewayPaymentWorkflowService(
                 loadAccountPort, updateAccountBalancePort, saveTransferPort,
-                idempotencyPort, outboxEventPort, paymentGatewayPort);
-        when(paymentGatewayPort.verifySignature(anyString(), anyString())).thenReturn(true);
+                idempotencyPort, outboxEventPort, paymentGatewayPort, new AccountAccessPolicy());
+        lenient().when(paymentGatewayPort.verifySignature(anyString(), anyString())).thenReturn(true);
     }
 
     private Transfer transferWithStatus(TransferStatus status) {
@@ -92,5 +98,45 @@ class GatewayPaymentWorkflowServiceTest {
         verifyNoInteractions(loadAccountPort, updateAccountBalancePort, outboxEventPort);
         verify(saveTransferPort, never()).saveTransfer(any());
         verify(saveTransferPort, never()).recordDoubleEntryLedger(any(), any(), any(), any());
+    }
+
+    private GatewayPaymentCommand paymentBy(Requester requester) {
+        return new GatewayPaymentCommand(IdempotencyKey.of("PSP-KEY-2"), CUSTOMER_ID, MERCHANT_ID,
+                Money.of(200.00, Currency.TRY), PaymentGatewayType.STRIPE, "a@b.c", "order", requester);
+    }
+
+    private void stubAccounts() {
+        Account customer = new Account(CUSTOMER_ID, "CUST", Money.of(1000.00, Currency.TRY), AccountStatus.ACTIVE, 0L, "CUST-1");
+        Account merchant = new Account(MERCHANT_ID, "MERCH", Money.of(0.00, Currency.TRY), AccountStatus.ACTIVE, 0L, "MERCH-1");
+        when(loadAccountPort.loadAccount(CUSTOMER_ID)).thenReturn(Optional.of(customer));
+        when(loadAccountPort.loadAccount(MERCHANT_ID)).thenReturn(Optional.of(merchant));
+    }
+
+    @Test
+    @DisplayName("Payment from an account the requester does not own is rejected before reaching the gateway")
+    void shouldRejectPaymentFromAccountNotOwned() {
+        stubAccounts();
+        when(idempotencyPort.acquireLock(any())).thenReturn(true);
+
+        assertThatThrownBy(() -> service.initiatePayment(paymentBy(Requester.customer("SOMEONE-ELSE"))))
+                .isInstanceOf(AccountNotFoundException.class);
+
+        verify(paymentGatewayPort, never()).authorizePayment(any());
+        verify(saveTransferPort, never()).saveTransfer(any());
+        verify(idempotencyPort).releaseLock(IdempotencyKey.of("SOMEONE-ELSE:PSP-KEY-2"));
+    }
+
+    @Test
+    @DisplayName("Payment from the requester's own account is authorized")
+    void shouldAuthorizePaymentFromOwnAccount() {
+        stubAccounts();
+        when(idempotencyPort.acquireLock(any())).thenReturn(true);
+        when(paymentGatewayPort.authorizePayment(any())).thenReturn(
+                new PaymentGatewayPort.GatewayAuthorizationResponse(true, EXTERNAL_REF, "secret", "ok"));
+
+        GatewayPaymentResponse response = service.initiatePayment(paymentBy(Requester.customer("CUST-1")));
+
+        assertThat(response.status()).isEqualTo(TransferStatus.AUTHORIZED);
+        verify(idempotencyPort).acquireLock(IdempotencyKey.of("CUST-1:PSP-KEY-2"));
     }
 }

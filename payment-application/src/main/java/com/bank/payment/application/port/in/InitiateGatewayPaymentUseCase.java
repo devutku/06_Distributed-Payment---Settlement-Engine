@@ -1,5 +1,6 @@
 package com.bank.payment.application.port.in;
 
+import com.bank.payment.application.security.Requester;
 import com.bank.payment.domain.model.account.AccountId;
 import com.bank.payment.domain.model.shared.Money;
 import com.bank.payment.domain.model.transfer.IdempotencyKey;
@@ -19,7 +20,8 @@ public interface InitiateGatewayPaymentUseCase {
             Money amount,
             PaymentGatewayType gatewayType,
             String customerEmail,
-            String description
+            String description,
+            Requester requester
     ) {}
 
     record GatewayPaymentResponse(
