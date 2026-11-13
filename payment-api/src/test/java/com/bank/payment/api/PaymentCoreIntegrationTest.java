@@ -6,8 +6,14 @@ import com.bank.payment.application.port.in.ProcessPaymentWebhookUseCase;
 import com.bank.payment.domain.model.shared.Currency;
 import com.bank.payment.domain.model.transfer.PaymentGatewayType;
 import com.bank.payment.infrastructure.gateway.MockPaymentGatewayAdapter;
+import com.bank.payment.infrastructure.messaging.kafka.KafkaConfig;
+import com.bank.payment.infrastructure.messaging.kafka.KafkaTransferEventListener;
+import com.bank.payment.infrastructure.messaging.kafka.KafkaTransferEventPublisher;
+import com.bank.payment.infrastructure.persistence.repository.SpringDataOutboxRepository;
+import com.bank.payment.infrastructure.persistence.repository.SpringDataProcessedEventRepository;
 import com.bank.payment.infrastructure.persistence.repository.SpringDataAccountRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -80,6 +86,18 @@ class PaymentCoreIntegrationTest {
 
     @Autowired
     private MockPaymentGatewayAdapter gatewayAdapter;
+
+    @Autowired
+    private KafkaTransferEventPublisher outboxPublisher;
+
+    @Autowired
+    private SpringDataOutboxRepository outboxRepository;
+
+    @Autowired
+    private KafkaTransferEventListener transferEventListener;
+
+    @Autowired
+    private SpringDataProcessedEventRepository processedEventRepository;
 
     @Test
     @DisplayName("Transfer should succeed and produce SETTLED status")
@@ -255,6 +273,47 @@ class PaymentCoreIntegrationTest {
         assertThat(aliceBefore.subtract(aliceAfter))
                 .as("customer must be debited exactly once")
                 .isEqualByComparingTo(amount);
+    }
+
+    @Test
+    @DisplayName("Outbox claim query (FOR UPDATE SKIP LOCKED) runs on the real database and publishes pending events")
+    void testOutboxClaimAndPublishOnDatabase() throws Exception {
+        TransferController.TransferRequest req = new TransferController.TransferRequest(
+                UUID.fromString("11111111-1111-1111-1111-111111111111"),
+                UUID.fromString("22222222-2222-2222-2222-222222222222"),
+                new BigDecimal("5.00"), Currency.TRY, "Outbox claim test");
+        mockMvc.perform(post("/api/v1/transfers")
+                        .header("Idempotency-Key", "OUTBOX-CLAIM-" + UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isOk());
+
+        outboxPublisher.publishPendingOutboxEvents();
+
+        // The @Scheduled publisher runs concurrently and may hold (SKIP LOCKED) part of the
+        // batch; give its transaction a moment to commit before asserting.
+        for (int i = 0; i < 50 && outboxRepository.findAll().stream().anyMatch(e -> "PENDING".equals(e.getStatus())); i++) {
+            Thread.sleep(100);
+        }
+        assertThat(outboxRepository.findAll())
+                .isNotEmpty()
+                .allSatisfy(e -> assertThat(e.getStatus()).isEqualTo("PUBLISHED"));
+    }
+
+    @Test
+    @DisplayName("Consumer records processed eventIds in the database and skips redelivered events")
+    void testConsumerSkipsRedeliveredEvent() {
+        String eventId = UUID.randomUUID().toString();
+        String payload = "{\"eventId\":\"" + eventId + "\",\"eventType\":\"TransferSettled\"}";
+        int before = transferEventListener.getProcessedEvents().size();
+
+        for (long offset = 0; offset < 3; offset++) {
+            transferEventListener.onTransferEvent(
+                    new ConsumerRecord<>(KafkaConfig.TRANSFER_EVENTS_TOPIC, 0, offset, "agg", payload));
+        }
+
+        assertThat(transferEventListener.getProcessedEvents()).hasSize(before + 1);
+        assertThat(processedEventRepository.existsById(eventId)).isTrue();
     }
 
     @Test
