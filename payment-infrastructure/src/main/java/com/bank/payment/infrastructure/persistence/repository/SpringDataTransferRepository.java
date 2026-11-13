@@ -22,7 +22,6 @@ public interface SpringDataTransferRepository extends JpaRepository<TransferJpaE
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT t FROM TransferJpaEntity t WHERE t.externalReferenceId = :externalReferenceId")
     Optional<TransferJpaEntity> findByExternalReferenceIdForUpdate(@Param("externalReferenceId") String externalReferenceId);
-    List<TransferJpaEntity> findTop50ByOrderByCreatedAtDesc();
 
     List<TransferJpaEntity> findAllByOrderByCreatedAtDesc(Pageable pageable);
 

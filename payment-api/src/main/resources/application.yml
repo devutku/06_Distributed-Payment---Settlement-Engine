@@ -53,7 +53,16 @@ spring:
         request.timeout.ms: 5000
         delivery.timeout.ms: 10000
 
+mutabik:
+  security:
+    issuer: ${MUTABIK_SECURITY_ISSUER:http://localhost:8180/realms/mutabik}
+    jwk-set-uri: ${MUTABIK_SECURITY_JWK_SET_URI:${mutabik.security.issuer}/protocol/openid-connect/certs}
+    audience: ${MUTABIK_SECURITY_AUDIENCE:mutabik-api}
+
 management:
+  # Actuator lives on its own internal port; the application port (8080) exposes no actuator.
+  server:
+    port: 8081
   endpoints:
     web:
       exposure:

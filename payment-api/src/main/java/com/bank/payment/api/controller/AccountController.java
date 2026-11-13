@@ -1,20 +1,21 @@
 package com.bank.payment.api.controller;
 
+import com.bank.payment.api.security.RequesterResolver;
 import com.bank.payment.application.dto.AccountBalanceDto;
 import com.bank.payment.application.dto.AccountStatementDto;
+import com.bank.payment.application.dto.RecipientDto;
 import com.bank.payment.application.port.in.GetAccountBalanceQuery;
+import com.bank.payment.application.port.in.GetAccountStatementQuery;
+import com.bank.payment.application.port.in.GetRecipientsQuery;
 import com.bank.payment.domain.model.account.AccountId;
-import com.bank.payment.domain.model.account.AccountStatus;
-import com.bank.payment.infrastructure.persistence.entity.AccountJpaEntity;
-import com.bank.payment.infrastructure.persistence.entity.LedgerJpaEntity;
-import com.bank.payment.infrastructure.persistence.repository.SpringDataAccountRepository;
-import com.bank.payment.infrastructure.persistence.repository.SpringDataLedgerRepository;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
-import java.math.BigDecimal;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -22,73 +23,38 @@ import java.util.UUID;
 public class AccountController {
 
     private final GetAccountBalanceQuery getAccountBalanceQuery;
-    private final SpringDataAccountRepository accountRepository;
-    private final SpringDataLedgerRepository ledgerRepository;
+    private final GetAccountStatementQuery getAccountStatementQuery;
+    private final GetRecipientsQuery getRecipientsQuery;
+    private final RequesterResolver requesterResolver;
 
     public AccountController(
             GetAccountBalanceQuery getAccountBalanceQuery,
-            SpringDataAccountRepository accountRepository,
-            SpringDataLedgerRepository ledgerRepository) {
+            GetAccountStatementQuery getAccountStatementQuery,
+            GetRecipientsQuery getRecipientsQuery,
+            RequesterResolver requesterResolver) {
         this.getAccountBalanceQuery = getAccountBalanceQuery;
-        this.accountRepository = accountRepository;
-        this.ledgerRepository = ledgerRepository;
+        this.getAccountStatementQuery = getAccountStatementQuery;
+        this.getRecipientsQuery = getRecipientsQuery;
+        this.requesterResolver = requesterResolver;
     }
 
     @GetMapping
-    public ResponseEntity<List<AccountBalanceDto>> getAllAccounts() {
-        return ResponseEntity.ok(getAccountBalanceQuery.getAllAccounts());
+    public ResponseEntity<List<AccountBalanceDto>> getAccounts(Authentication auth) {
+        return ResponseEntity.ok(getAccountBalanceQuery.getAccounts(requesterResolver.resolve(auth)));
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<AccountBalanceDto> getAccountById(@PathVariable UUID id) {
-        return ResponseEntity.ok(getAccountBalanceQuery.getAccountById(AccountId.of(id)));
+    @GetMapping("/recipients")
+    public ResponseEntity<List<RecipientDto>> getRecipients(Authentication auth) {
+        return ResponseEntity.ok(getRecipientsQuery.getRecipients(requesterResolver.resolve(auth)));
     }
 
-    @GetMapping("/{id}/statement")
-    public ResponseEntity<AccountStatementDto> getStatement(@PathVariable UUID id) {
-        AccountJpaEntity acc = accountRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Hesap bulunamadı: " + id));
-
-        List<LedgerJpaEntity> entries = ledgerRepository.findByAccountIdOrderByCreatedAtDesc(id);
-
-        List<AccountStatementDto.LedgerItem> items = entries.stream()
-                .map(e -> new AccountStatementDto.LedgerItem(
-                        e.getId(),
-                        e.getTransferId(),
-                        e.getEntryType(),
-                        e.getAmount(),
-                        e.getBalanceAfter(),
-                        e.getDescription(),
-                        e.getCreatedAt()
-                ))
-                .toList();
-
-        return ResponseEntity.ok(new AccountStatementDto(
-                acc.getId(),
-                acc.getCustomerNumber(),
-                acc.getBalance(),
-                acc.getCurrency().name(),
-                items
-        ));
+    @GetMapping("/{id:[0-9a-fA-F-]{36}}")
+    public ResponseEntity<AccountBalanceDto> getAccountById(@PathVariable UUID id, Authentication auth) {
+        return ResponseEntity.ok(getAccountBalanceQuery.getAccount(requesterResolver.resolve(auth), AccountId.of(id)));
     }
 
-    @PostMapping("/reset")
-    public ResponseEntity<Map<String, String>> resetBalances() {
-        List<AccountJpaEntity> accounts = accountRepository.findAll();
-        for (AccountJpaEntity acc : accounts) {
-            if (acc.getCustomerNumber().contains("Alice")) {
-                acc.setBalance(new BigDecimal("10000.00"));
-            } else if (acc.getCustomerNumber().contains("Bob")) {
-                acc.setBalance(new BigDecimal("5000.00"));
-            } else if (acc.getCustomerNumber().contains("Charlie")) {
-                acc.setBalance(new BigDecimal("250.00"));
-            } else if (acc.getCustomerNumber().contains("Clearing")) {
-                acc.setBalance(new BigDecimal("1000000.00"));
-            }
-            acc.setStatus(AccountStatus.ACTIVE);
-        }
-        accountRepository.saveAll(accounts);
-        return ResponseEntity.ok(Map.of("message", "Hesap bakiyeleri başarıyla sıfırlandı"));
+    @GetMapping("/{id:[0-9a-fA-F-]{36}}/statement")
+    public ResponseEntity<AccountStatementDto> getStatement(@PathVariable UUID id, Authentication auth) {
+        return ResponseEntity.ok(getAccountStatementQuery.getStatement(requesterResolver.resolve(auth), AccountId.of(id)));
     }
 }
-
