@@ -76,6 +76,23 @@
         ::-webkit-scrollbar-thumb:hover {
             background: #334155;
         }
+        /* Respect users who ask the OS for less motion */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+                scroll-behavior: auto !important;
+            }
+        }
+
+        /* Touch screens: every control gets at least a 44x44 hit area */
+        @media (pointer: coarse) {
+            button, a, select, input, summary { min-height: 44px; }
+            button, a { min-width: 44px; justify-content: center; }
+        }
+
+        dialog::backdrop { background: rgba(2, 6, 23, 0.75); backdrop-filter: blur(2px); }
     </style>
 </head>
 <body class="min-h-screen flex flex-col antialiased selection:bg-indigo-500 selection:text-white">
@@ -89,10 +106,10 @@
                 </div>
                 <div>
                     <div class="flex items-center gap-2">
-                        <span class="text-lg font-bold tracking-tight text-white">
+                        <h1 class="text-lg font-bold tracking-tight text-white">
                             Mutabık Engine
-                        </span>
-                        <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-medium">
+                        </h1>
+                        <span class="text-xs font-mono px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-medium">
                             v1.0.0
                         </span>
                     </div>
@@ -105,10 +122,10 @@
                 <span id="apiStatus" class="px-2.5 py-1 rounded-full bg-slate-800/80 text-slate-400 border border-slate-700/60 flex items-center gap-1.5 font-medium">
                     <span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span> API kontrol ediliyor
                 </span>
-                <span class="hidden 2xl:inline-flex px-2.5 py-1 rounded-full bg-slate-800/80 text-slate-300 border border-slate-700/60 font-mono text-[11px]">
+                <span class="hidden 2xl:inline-flex px-2.5 py-1 rounded-full bg-slate-800/80 text-slate-300 border border-slate-700/60 font-mono text-xs">
                     Java 21 &bull; Spring Boot 3.3
                 </span>
-                <span class="hidden 2xl:inline-flex px-2.5 py-1 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20 font-mono text-[11px]">
+                <span class="hidden 2xl:inline-flex px-2.5 py-1 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20 font-mono text-xs">
                     Kafka + Redis + Postgres
                 </span>
             </div>
@@ -117,7 +134,7 @@
                 <div class="flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700/60">
                     <i class="fa-solid fa-user text-indigo-400"></i>
                     <span id="userName" class="text-slate-200 font-medium"></span>
-                    <span id="roleBadge" class="text-[10px] font-mono px-2 py-0.5 rounded-full border font-medium"></span>
+                    <span id="roleBadge" class="text-xs font-mono px-2 py-0.5 rounded-full border font-medium"></span>
                 </div>
                 <button onclick="keycloak.logout()" class="text-xs px-3 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 flex items-center gap-1.5 transition">
                     <i class="fa-solid fa-right-from-bracket"></i> Çıkış
@@ -166,58 +183,61 @@
                         <h3 class="font-bold text-base text-white flex items-center gap-2">
                             <i class="fa-solid fa-paper-plane text-indigo-400"></i> Anlık Para Transferi
                         </h3>
-                        <p class="text-xs text-slate-400 mt-0.5">Two-Tier Redis Fast-Path &amp; DB Idempotency</p>
+                        <p class="text-xs text-slate-400 mt-0.5">Aynı istek tekrar gelse bile hesabınız iki kez borçlandırılmaz</p>
                     </div>
-                    <span class="text-[11px] font-mono px-2.5 py-0.5 rounded-md bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-medium">
-                        @Idempotent
-                    </span>
                 </div>
 
                 <div class="space-y-4 text-sm">
                     <div>
-                        <label class="block text-xs font-medium text-slate-300 mb-1.5">Kaynak Hesap (Gönderen)</label>
+                        <label for="transferSource" class="block text-xs font-medium text-slate-300 mb-1.5">Kaynak Hesap (Gönderen)</label>
                         <select id="transferSource" class="fintech-input w-full px-3 py-2 text-xs"></select>
                     </div>
 
                     <div>
-                        <label class="block text-xs font-medium text-slate-300 mb-1.5">Hedef Hesap (Alıcı)</label>
+                        <label for="transferTarget" class="block text-xs font-medium text-slate-300 mb-1.5">Hedef Hesap (Alıcı)</label>
                         <select id="transferTarget" class="fintech-input w-full px-3 py-2 text-xs"></select>
                     </div>
 
                     <div>
-                        <label class="block text-xs font-medium text-slate-300 mb-1.5">Transfer Tutarı (₺)</label>
+                        <label for="transferAmount" class="block text-xs font-medium text-slate-300 mb-1.5">Transfer Tutarı (₺)</label>
                         <div class="relative">
-                            <span class="absolute left-3.5 top-2.5 text-slate-400 font-mono text-sm">₺</span>
-                            <input id="transferAmount" type="number" step="0.01" value="250.00" class="fintech-input w-full pl-8 pr-3.5 py-2 text-sm code-font text-white font-medium">
+                            <span class="absolute left-3.5 top-2.5 text-slate-400 font-mono text-sm" aria-hidden="true">₺</span>
+                            <input id="transferAmount" type="text" inputmode="decimal" autocomplete="off" value="250,00" aria-describedby="transferAmountError" class="fintech-input w-full pl-8 pr-3.5 py-2 text-sm code-font text-white font-medium">
                         </div>
+                        <p id="transferAmountError" class="hidden text-xs text-rose-400 mt-1"></p>
                     </div>
 
-                    <div>
-                        <div class="flex items-center justify-between mb-1.5">
-                            <label class="text-xs font-medium text-slate-300">Idempotency-Key Header</label>
-                            <button onclick="generateNewKey()" class="text-[11px] text-indigo-400 hover:text-indigo-300 flex items-center gap-1 transition">
-                                <i class="fa-solid fa-dice"></i> Yeni Anahtar
+                    <button id="btnTransfer" onclick="executeTransfer()" class="w-full py-2.5 px-4 bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-semibold rounded-xl shadow-lg shadow-indigo-500/25 transition-all duration-200 flex items-center justify-center gap-2 text-sm tracking-wide">
+                        <i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Transferi Gönder
+                    </button>
+
+                    <!-- Developer-facing idempotency demo, collapsed so it doesn't clutter the customer flow -->
+                    <details class="rounded-xl border border-slate-800/80 bg-[#0A0F1D]/60">
+                        <summary class="cursor-pointer select-none px-3 py-2.5 text-xs text-slate-300 flex items-center gap-2">
+                            <i class="fa-solid fa-code text-indigo-400" aria-hidden="true"></i> Geliştirici detayları
+                            <span class="ml-auto text-xs font-mono px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">@Idempotent</span>
+                        </summary>
+                        <div class="px-3 pb-3 space-y-2">
+                            <div class="flex items-center justify-between">
+                                <label for="idempotencyKey" class="text-xs font-medium text-slate-300">İşlem anahtarı (Idempotency-Key)</label>
+                                <button onclick="generateNewKey()" class="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1 transition">
+                                    <i class="fa-solid fa-dice" aria-hidden="true"></i> Yeni Anahtar
+                                </button>
+                            </div>
+                            <input id="idempotencyKey" type="text" class="fintech-input w-full px-3 py-2 text-xs code-font text-indigo-300">
+                            <p class="text-xs text-slate-400 flex gap-1.5">
+                                <i class="fa-solid fa-lightbulb text-amber-400 mt-0.5" aria-hidden="true"></i>
+                                Aynı anahtarla tekrar gönderildiğinde hesap ikinci kez borçlandırılmaz; önbellekteki yanıt döner.
+                            </p>
+                            <button onclick="executeTransfer(true)" class="w-full py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium rounded-xl border border-slate-700/60 text-xs transition">
+                                <i class="fa-solid fa-repeat" aria-hidden="true"></i> Aynı anahtarla tekrar gönder
                             </button>
                         </div>
-                        <input id="idempotencyKey" type="text" class="fintech-input w-full px-3 py-2 text-xs code-font text-indigo-300">
-                        <span class="text-[11px] text-slate-400 mt-1 block">
-                            💡 Aynı anahtarla 2. kez gönderildiğinde hesap iki kez borçlandırılmaz, önbellekteki yanıt döner!
-                        </span>
-                    </div>
-
-                    <!-- Action Buttons -->
-                    <div class="flex gap-2.5 pt-1">
-                        <button id="btnTransfer" onclick="executeTransfer()" class="flex-1 py-2.5 px-4 bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-semibold rounded-xl shadow-lg shadow-indigo-500/25 transition-all duration-200 flex items-center justify-center gap-2 text-xs tracking-wide">
-                            <i class="fa-solid fa-shield-halved"></i> Transferi Gönder
-                        </button>
-                        <button onclick="executeTransfer()" class="py-2.5 px-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium rounded-xl border border-slate-700/60 text-xs transition" title="Aynı anahtarla tekrar dene (Idempotency Replay Testi)">
-                            <i class="fa-solid fa-repeat"></i> Tekrar Gönder
-                        </button>
-                    </div>
+                    </details>
                 </div>
 
-                <!-- Transfer Result Box -->
-                <div id="transferResult" class="hidden rounded-xl p-4 border text-xs space-y-2"></div>
+                <!-- Transfer Result Box (announced to screen readers) -->
+                <div id="transferResult" role="status" aria-live="polite" class="hidden rounded-xl p-4 border text-xs space-y-2"></div>
             </div>
 
             <!-- Card 2: Recent Transfers (7 Cols) -->
@@ -242,51 +262,51 @@
             <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/80 pb-4">
                 <div>
                     <h3 class="font-bold text-base text-white flex items-center gap-2">
-                        <i class="fa-solid fa-credit-card text-indigo-400"></i> Ödeme Geçidi (Payment Gateway)
+                        <i class="fa-solid fa-credit-card text-indigo-400"></i> Ödeme Geçidi
                     </h3>
                     <p class="text-xs text-slate-400 mt-0.5">
                         Stripe / PayPal / Razorpay ile yetkilendirme &bull; tahsilat, sağlayıcının HMAC imzalı webhook'u ile tamamlanır
                     </p>
                 </div>
                 <div class="flex items-center gap-2">
-                    <span class="text-[11px] font-mono px-2.5 py-0.5 rounded-md bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-medium">
+                    <span class="text-xs font-mono px-2.5 py-0.5 rounded-md bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-medium">
                         PENDING &rarr; AUTHORIZED
                     </span>
                 </div>
             </div>
 
             <!-- Visual Flow Bar -->
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-center text-[11px] font-mono">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-center text-xs font-mono">
                 <div class="p-2 rounded-lg bg-[#0A0F1D] border border-slate-800 transition-all duration-300" id="step1">
-                    <span class="text-blue-400 font-bold block">1. User &amp; Frontend</span>
-                    <span class="text-slate-400 text-[10px]">Clicks "Pay" + Idemp-Key</span>
+                    <span class="text-blue-400 font-bold block">1. Kullanıcı</span>
+                    <span class="text-slate-400 text-xs">"Öde" + işlem anahtarı</span>
                 </div>
                 <div class="p-2 rounded-lg bg-[#0A0F1D] border border-slate-800 transition-all duration-300" id="step2">
-                    <span class="text-teal-400 font-bold block">2. Payment Service</span>
-                    <span class="text-slate-400 text-[10px]">Create "PENDING" DB</span>
+                    <span class="text-teal-400 font-bold block">2. Ödeme Servisi</span>
+                    <span class="text-slate-400 text-xs">PENDING kayıt oluşturur</span>
                 </div>
                 <div class="p-2 rounded-lg bg-[#0A0F1D] border border-slate-800 transition-all duration-300" id="step3">
-                    <span class="text-purple-400 font-bold block">3. Payment Gateway</span>
-                    <span class="text-slate-400 text-[10px]">Stripe/PayPal (AUTH)</span>
+                    <span class="text-purple-400 font-bold block">3. Ödeme Sağlayıcı</span>
+                    <span class="text-slate-400 text-xs">Yetkilendirme (AUTH)</span>
                 </div>
                 <div class="p-2 rounded-lg bg-[#0A0F1D] border border-slate-800 transition-all duration-300" id="step4">
                     <span class="text-amber-400 font-bold block">4. Sağlayıcı Onayı</span>
-                    <span class="text-slate-400 text-[10px]">Ödeme sağlayıcısının onayı bekleniyor</span>
+                    <span class="text-slate-400 text-xs">Ödeme sağlayıcısının onayı bekleniyor</span>
                 </div>
             </div>
 
             <!-- Gateway Form Controls -->
             <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 text-sm">
                 <div>
-                    <label class="block text-xs font-medium text-slate-300 mb-1.5">Müşteri Hesabı</label>
+                    <label for="gwCustomer" class="block text-xs font-medium text-slate-300 mb-1.5">Müşteri Hesabı</label>
                     <select id="gwCustomer" class="fintech-input w-full px-2.5 py-2 text-xs"></select>
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-slate-300 mb-1.5">Mağaza / Alıcı Hesap</label>
+                    <label for="gwMerchant" class="block text-xs font-medium text-slate-300 mb-1.5">Mağaza / Alıcı Hesap</label>
                     <select id="gwMerchant" class="fintech-input w-full px-2.5 py-2 text-xs"></select>
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-slate-300 mb-1.5">Ödeme Sağlayıcı (PSP)</label>
+                    <label for="gwProvider" class="block text-xs font-medium text-slate-300 mb-1.5">Ödeme Sağlayıcı (PSP)</label>
                     <select id="gwProvider" class="fintech-input w-full px-2.5 py-2 text-xs font-mono">
                         <option value="STRIPE">Stripe (PaymentIntent)</option>
                         <option value="PAYPAL">PayPal (Order API)</option>
@@ -294,20 +314,21 @@
                     </select>
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-slate-300 mb-1.5">Tutar (₺)</label>
-                    <input id="gwAmount" type="number" step="0.01" value="350.00" class="fintech-input w-full px-2.5 py-2 text-xs code-font text-white">
+                    <label for="gwAmount" class="block text-xs font-medium text-slate-300 mb-1.5">Tutar (₺)</label>
+                    <input id="gwAmount" type="text" inputmode="decimal" autocomplete="off" value="350,00" aria-describedby="gwAmountError" class="fintech-input w-full px-2.5 py-2 text-xs code-font text-white">
+                    <p id="gwAmountError" class="hidden text-xs text-rose-400 mt-1"></p>
                 </div>
             </div>
 
             <!-- Action Buttons -->
             <div class="flex flex-wrap gap-3">
                 <button id="btnGwAuthorize" onclick="runGatewayAuthorize()" class="flex-1 py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow-lg shadow-indigo-500/20">
-                    <i class="fa-solid fa-credit-card"></i> Öde (Pay with Gateway)
+                    <i class="fa-solid fa-credit-card" aria-hidden="true"></i> Öde
                 </button>
             </div>
 
             <!-- Gateway Result Box -->
-            <div id="gwResultBox" class="hidden rounded-xl p-4 bg-[#0A0F1D] border border-slate-800 text-xs font-mono space-y-2">
+            <div id="gwResultBox" role="status" aria-live="polite" class="hidden rounded-xl p-4 bg-[#0A0F1D] border border-slate-800 text-xs font-mono space-y-2">
             </div>
         </section>
 
@@ -319,16 +340,15 @@
                 <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/80 pb-3">
                     <h3 class="font-bold text-base text-white flex items-center gap-2">
                         <i class="fa-solid fa-receipt text-indigo-400"></i> Çift Taraflı Ekstre
-                        <span class="hidden sm:inline text-xs font-normal text-slate-400">(Double-Entry Ledger)</span>
                     </h3>
-                    <select id="ledgerAccountSelect" onchange="loadStatement()" class="fintech-input px-2.5 py-1 text-xs max-w-full">
+                    <select id="ledgerAccountSelect" aria-label="Ekstresi gösterilecek hesap" onchange="loadStatement()" class="fintech-input px-2.5 py-1 text-xs max-w-full">
                     </select>
                 </div>
                 <p class="text-xs text-slate-400">Denetlenebilir ve değiştirilemez bakiye hareketleri (Her transferde Borç + Alacak kaydı).</p>
 
                 <div class="overflow-x-auto max-h-72 overflow-y-auto rounded-xl border border-slate-800/80">
                     <table class="w-full text-xs text-left whitespace-nowrap">
-                        <thead class="text-slate-400 uppercase bg-[#0A0F1D] sticky top-0 font-mono text-[10px] border-b border-slate-800">
+                        <thead class="text-slate-400 uppercase bg-[#0A0F1D] sticky top-0 font-mono text-xs border-b border-slate-800">
                             <tr>
                                 <th class="p-2.5">Tip</th>
                                 <th class="p-2.5">Tutar</th>
@@ -338,7 +358,7 @@
                             </tr>
                         </thead>
                         <tbody id="ledgerTableBody" class="divide-y divide-slate-800/60 bg-[#0F1626]/40 code-font">
-                            <tr><td colspan="5" class="p-4 text-center text-slate-500">Ekstreyi görüntülemek için bir hesap seçin</td></tr>
+                            <tr><td colspan="5" class="p-4 text-center text-slate-400">Ekstreyi görüntülemek için bir hesap seçin</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -367,7 +387,7 @@
     </main>
 
     <!-- Footer -->
-    <footer class="border-t border-slate-800/80 py-4 text-center text-xs text-slate-500 font-mono">
+    <footer class="border-t border-slate-800/80 py-4 text-center text-xs text-slate-400 font-mono">
         Mutabık Architecture &bull; Clean Architecture Multi-Module Showcase &bull; 2026
     </footer>
 
@@ -470,6 +490,59 @@
             });
         }
 
+        // Accepts Turkish ("1.250,50") and plain ("1250.50") input; returns NaN if not a positive amount.
+        function parseAmount(raw) {
+            let v = String(raw).trim().replace(/[\s₺]/g, '');
+            if (v.includes(',')) v = v.replace(/\./g, '').replace(',', '.');
+            const n = Number(v);
+            return Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : NaN;
+        }
+
+        function formatTRY(n) {
+            return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(Number(n));
+        }
+
+        function selectedText(id) {
+            const sel = document.getElementById(id);
+            return sel && sel.selectedIndex >= 0 ? sel.options[sel.selectedIndex].text : '';
+        }
+
+        function showFieldError(fieldId, message) {
+            const field = document.getElementById(fieldId);
+            const err = document.getElementById(fieldId + 'Error');
+            field.setAttribute('aria-invalid', 'true');
+            err.textContent = message;
+            err.classList.remove('hidden');
+            field.focus();
+        }
+
+        function validateAmount(fieldId, amount) {
+            const field = document.getElementById(fieldId);
+            const err = document.getElementById(fieldId + 'Error');
+            if (Number.isNaN(amount)) {
+                showFieldError(fieldId, 'Geçerli bir tutar girin (ör. 250,00).');
+                return false;
+            }
+            field.removeAttribute('aria-invalid');
+            err.classList.add('hidden');
+            return true;
+        }
+
+        // Summary-and-confirm step before any money moves. Resolves true only on explicit confirm.
+        function confirmMoney(title, rows, confirmLabel) {
+            const dlg = document.getElementById('confirmDialog');
+            document.getElementById('confirmTitle').textContent = title;
+            document.getElementById('confirmOk').textContent = confirmLabel;
+            document.getElementById('confirmRows').innerHTML = rows.map(([k, v]) =>
+                `<div class="flex justify-between gap-6 py-1.5"><dt class="text-slate-400">${esc(k)}</dt><dd class="text-white font-medium text-right">${esc(v)}</dd></div>`
+            ).join('');
+            dlg.returnValue = '';
+            return new Promise(resolve => {
+                dlg.addEventListener('close', () => resolve(dlg.returnValue === 'ok'), { once: true });
+                dlg.showModal();
+            });
+        }
+
         function generateNewKey() {
             document.getElementById('idempotencyKey').value = generateUUID();
         }
@@ -529,22 +602,22 @@
                                 </div>
                                 <div>
                                     <span class="text-sm font-semibold text-white block leading-tight">${esc(info.name)}</span>
-                                    <span class="text-[11px] font-mono text-slate-400">${esc(info.ibanCompact)}</span>
+                                    <span class="text-xs font-mono text-slate-400">${esc(info.ibanCompact)}</span>
                                 </div>
                             </div>
-                            <span class="text-[10px] px-2 py-0.5 rounded-full border ${badgeColor} font-mono uppercase tracking-wider">
+                            <span class="text-xs px-2 py-0.5 rounded-full border ${badgeColor} font-mono uppercase tracking-wider">
                                 ${esc(acc.status)}
                             </span>
                         </div>
 
                         <div class="mt-4">
-                            <span class="text-[10px] text-slate-400 uppercase tracking-wider font-medium block mb-1">Kullanılabilir Bakiye</span>
+                            <span class="text-xs text-slate-400 uppercase tracking-wider font-medium block mb-1">Kullanılabilir Bakiye</span>
                             <div class="text-2xl font-bold tracking-tight text-white flex items-baseline">
                                 ${formatMoney(acc.balance)}
                             </div>
                         </div>
 
-                        <div class="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400 font-mono">
+                        <div class="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400 font-mono">
                             <span class="text-slate-400">ID: ${esc(acc.accountId.substring(0, 8))}...</span>
                             <button onclick="navigator.clipboard.writeText('${esc(acc.accountId)}'); alert('Hesap ID kopyalandı!')" class="hover:text-slate-200 transition" title="Hesap ID Kopyala">
                                 <i class="fa-regular fa-copy"></i>
@@ -583,7 +656,7 @@
         function populateRecipients() {
             const own = new Set(accounts.map(a => a.accountId));
             const list = recipients.filter(r => !own.has(r.accountId));
-            const options = list.map(r => `<option value="${esc(r.accountId)}">${esc(r.displayName)} (${esc(r.maskedIban)})</option>`).join('')
+            const options = list.map(r => `<option value="${esc(r.accountId)}">${esc(r.displayName)} (${esc(String(r.maskedIban).replace(/\*{4}/g, '••••'))})</option>`).join('')
                 || '<option value="">Alıcı bulunamadı</option>';
             const tgt = document.getElementById('transferTarget');
             const merchant = document.getElementById('gwMerchant');
@@ -594,13 +667,27 @@
             if (merchPrev) merchant.value = merchPrev;
         }
 
-        async function executeTransfer() {
+        // A normal transfer always gets a fresh key; replay=true reuses the current key (idempotency demo).
+        async function executeTransfer(replay) {
+            if (!replay) generateNewKey();
             const btn = document.getElementById('btnTransfer');
             const resultBox = document.getElementById('transferResult');
             const sourceId = document.getElementById('transferSource').value;
             const targetId = document.getElementById('transferTarget').value;
-            const amount = parseFloat(document.getElementById('transferAmount').value);
+            const amount = parseAmount(document.getElementById('transferAmount').value);
             const key = document.getElementById('idempotencyKey').value;
+
+            if (!validateAmount('transferAmount', amount)) return;
+            if (!targetId) {
+                showFieldError('transferAmount', 'Önce bir alıcı hesap seçin.');
+                return;
+            }
+            const confirmed = await confirmMoney('Transferi onaylayın', [
+                ['Gönderen', selectedText('transferSource')],
+                ['Alıcı', selectedText('transferTarget')],
+                ['Tutar', formatTRY(amount)]
+            ], 'Onayla ve gönder');
+            if (!confirmed) return;
 
             btn.disabled = true;
             btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> İşleniyor...`;
@@ -626,8 +713,8 @@
 
                 if (res.ok) {
                     const replayTag = data.idempotentReplay ?
-                        `<span class="px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 font-semibold">⚡ IDEMPOTENCY CACHE REPLAY (Sıfır Çift Çekim)</span>` :
-                        `<span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-semibold">&check; YENİ İŞLEM COMMITTED</span>`;
+                        `<span class="px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 font-semibold"><i class="fa-solid fa-bolt" aria-hidden="true"></i> Tekrar istek: önbellekten yanıt, çift çekim yok</span>` :
+                        `<span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-semibold">&check; Yeni işlem kaydedildi</span>`;
 
                     resultBox.className = "rounded-xl p-4 bg-emerald-950/40 border border-emerald-500/30 text-xs space-y-1.5 text-emerald-200";
                     resultBox.innerHTML = `
@@ -635,8 +722,8 @@
                             <strong>${esc(data.message)}</strong>
                             ${replayTag}
                         </div>
-                        <div class="font-mono text-[11px] text-slate-300">
-                            TxID: ${esc(data.transferId)} | Tutar: ₺${esc(data.amount)} | Durum: ${esc(data.status)}
+                        <div class="font-mono text-xs text-slate-300">
+                            İşlem No: ${esc(data.transferId)} | Tutar: ${esc(formatTRY(data.amount))} | Durum: ${esc(data.status)}
                         </div>
                     `;
                 } else {
@@ -667,7 +754,7 @@
                 const items = await res.json();
                 const list = document.getElementById('transfersList');
                 if (!items.length) {
-                    list.innerHTML = `<div class="text-center text-slate-500 text-xs py-4">Henüz transfer yok.</div>`;
+                    list.innerHTML = `<div class="text-center text-slate-400 text-xs py-4">Henüz transfer yok.</div>`;
                     return;
                 }
                 const nameOf = id => {
@@ -680,11 +767,11 @@
                     <div class="p-2.5 rounded-lg bg-[#0A0F1D] border border-slate-800/80 flex items-center justify-between text-xs font-mono">
                         <div>
                             <span class="text-white font-bold">${esc(nameOf(t.sourceAccountId))} &rarr; ${esc(nameOf(t.targetAccountId))}</span>
-                            <span class="text-slate-400 block text-[10px]">${esc(t.gatewayType || 'INTERNAL')} &bull; ${esc(new Date(t.createdAt).toLocaleString('tr-TR'))}</span>
+                            <span class="text-slate-400 block text-xs">${esc(t.gatewayType || 'INTERNAL')} &bull; ${esc(new Date(t.createdAt).toLocaleString('tr-TR'))}</span>
                         </div>
                         <div class="text-right">
                             <span class="text-indigo-300 font-semibold block">₺${esc(Number(t.amount).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))}</span>
-                            <span class="px-2 py-0.5 rounded text-[10px] bg-slate-800 text-slate-300 border border-slate-700/60">${esc(t.status)}</span>
+                            <span class="px-2 py-0.5 rounded text-xs bg-slate-800 text-slate-300 border border-slate-700/60">${esc(t.status)}</span>
                         </div>
                     </div>
                 `).join('');
@@ -708,7 +795,7 @@
                 }
 
                 if (!data.items || data.items.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-500">Bu hesap için henüz hareket bulunmuyor.</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400">Bu hesap için henüz hareket bulunmuyor.</td></tr>`;
                     return;
                 }
 
@@ -719,7 +806,7 @@
                     return `
                         <tr class="hover:bg-slate-800/40 transition">
                             <td class="p-2.5">
-                                <span class="px-2 py-0.5 rounded text-[10px] ${isDebit ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'} font-bold">
+                                <span class="px-2 py-0.5 rounded text-xs ${isDebit ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'} font-bold">
                                     ${esc(e.type)}
                                 </span>
                             </td>
@@ -728,7 +815,7 @@
                             </td>
                             <td class="p-2.5 text-white font-mono">₺${balAfterFormatted}</td>
                             <td class="p-2.5 text-slate-400 truncate max-w-[140px]" title="${esc(e.description)}">${esc(e.description)}</td>
-                            <td class="p-2.5 text-slate-400 text-[10px]">${new Date(e.createdAt).toLocaleTimeString()}</td>
+                            <td class="p-2.5 text-slate-400 text-xs">${new Date(e.createdAt).toLocaleTimeString()}</td>
                         </tr>
                     `;
                 }).join('');
@@ -746,7 +833,7 @@
                 const list = document.getElementById('outboxEventsList');
 
                 if (events.length === 0) {
-                    list.innerHTML = `<div class="text-center text-slate-500 text-xs py-4">Henüz Outbox kaydı yok.</div>`;
+                    list.innerHTML = `<div class="text-center text-slate-400 text-xs py-4">Henüz Outbox kaydı yok.</div>`;
                     return;
                 }
 
@@ -756,9 +843,9 @@
                         <div class="p-2.5 rounded-lg bg-[#0A0F1D] border border-slate-800/80 flex items-center justify-between text-xs font-mono">
                             <div>
                                 <span class="text-purple-400 font-bold">${esc(ev.eventType)}</span>
-                                <span class="text-slate-400 block text-[10px]">ID: ${esc(String(ev.id).substring(0, 18))}...</span>
+                                <span class="text-slate-400 block text-xs">ID: ${esc(String(ev.id).substring(0, 18))}...</span>
                             </div>
-                            <span class="px-2 py-0.5 rounded text-[10px] ${isPub ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}">
+                            <span class="px-2 py-0.5 rounded text-xs ${isPub ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}">
                                 ${esc(ev.status)}
                             </span>
                         </div>
@@ -787,7 +874,16 @@
             const custId = document.getElementById('gwCustomer').value;
             const merchId = document.getElementById('gwMerchant').value;
             const provider = document.getElementById('gwProvider').value;
-            const amount = parseFloat(document.getElementById('gwAmount').value);
+            const amount = parseAmount(document.getElementById('gwAmount').value);
+
+            if (!validateAmount('gwAmount', amount)) return;
+            const confirmed = await confirmMoney('Ödemeyi onaylayın', [
+                ['Ödeyen hesap', selectedText('gwCustomer')],
+                ['Mağaza', selectedText('gwMerchant')],
+                ['Sağlayıcı', selectedText('gwProvider')],
+                ['Tutar', formatTRY(amount)]
+            ], 'Onayla ve öde');
+            if (!confirmed) return;
 
             btnAuth.disabled = true;
             setStepActive(1, true, false);
@@ -867,7 +963,7 @@
             document.getElementById('userName').textContent = keycloak.tokenParsed.preferred_username || '';
             const badge = document.getElementById('roleBadge');
             badge.textContent = role;
-            badge.className = "text-[10px] font-mono px-2 py-0.5 rounded-full border font-medium " + (admin
+            badge.className = "text-xs font-mono px-2 py-0.5 rounded-full border font-medium " + (admin
                 ? "bg-purple-500/10 text-purple-300 border-purple-500/30"
                 : "bg-emerald-500/10 text-emerald-300 border-emerald-500/30");
 
@@ -908,5 +1004,15 @@
 
         start();
     </script>
+    <dialog id="confirmDialog" aria-labelledby="confirmTitle" class="fintech-card rounded-2xl p-0 w-[min(92vw,28rem)] text-slate-200 border border-slate-700/60 bg-[#0B1120]">
+        <form method="dialog" class="p-6 space-y-4">
+            <h2 id="confirmTitle" class="text-base font-bold text-white"></h2>
+            <dl id="confirmRows" class="text-sm divide-y divide-slate-800/80"></dl>
+            <div class="flex gap-2.5 pt-2">
+                <button value="cancel" class="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700/60 text-sm">Vazgeç</button>
+                <button id="confirmOk" value="ok" class="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm"></button>
+            </div>
+        </form>
+    </dialog>
 </body>
 </html>
