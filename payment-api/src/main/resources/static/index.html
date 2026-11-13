@@ -6,6 +6,7 @@
     <title>Mutabık | Distributed Payment &amp; Settlement Engine</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/keycloak-js@25.0.6/dist/keycloak.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <script>
         tailwind.config = {
@@ -112,6 +113,14 @@
                 </span>
             </div>
 
+                <div class="flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700/60">
+                    <i class="fa-solid fa-user text-indigo-400"></i>
+                    <span id="userName" class="text-slate-200 font-medium"></span>
+                    <span id="roleBadge" class="text-[10px] font-mono px-2 py-0.5 rounded-full border font-medium"></span>
+                </div>
+                <button onclick="keycloak.logout()" class="text-xs px-3 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 flex items-center gap-1.5 transition">
+                    <i class="fa-solid fa-right-from-bracket"></i> Çıkış
+                </button>
             <div class="flex items-center space-x-2.5">
                 <a href="/actuator/prometheus" target="_blank" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 flex items-center gap-1.5 transition">
                     <i class="fa-solid fa-chart-line text-indigo-400"></i> Prometheus
@@ -139,9 +148,6 @@
                     <button onclick="fetchAccounts()" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 flex items-center gap-1.5 transition">
                         <i class="fa-solid fa-arrows-rotate"></i> Yenile
                     </button>
-                    <button onclick="resetBalances()" class="text-xs px-3 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 flex items-center gap-1.5 transition">
-                        <i class="fa-solid fa-rotate-left"></i> Bakiyeleri Sıfırla
-                    </button>
                 </div>
             </div>
 
@@ -151,10 +157,10 @@
         </section>
 
         <!-- Main Operations Grid: Transfer & Concurrency Simulator -->
-        <section class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <section id="mainOps" class="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
             <!-- Card 1: Idempotent Payment Transfer (5 Cols) -->
-            <div class="lg:col-span-5 fintech-card rounded-2xl p-6 space-y-5">
+            <div id="transferCard" class="lg:col-span-5 fintech-card rounded-2xl p-6 space-y-5">
                 <div class="flex items-center justify-between border-b border-slate-800/80 pb-4">
                     <div>
                         <h3 class="font-bold text-base text-white flex items-center gap-2">
@@ -214,95 +220,25 @@
                 <div id="transferResult" class="hidden rounded-xl p-4 border text-xs space-y-2"></div>
             </div>
 
-            <!-- Card 2: Concurrency Stress Simulator (7 Cols) -->
-            <div class="lg:col-span-7 fintech-card rounded-2xl p-6 space-y-5">
+            <!-- Card 2: Recent Transfers (7 Cols) -->
+            <div id="transfersCard" class="lg:col-span-7 fintech-card rounded-2xl p-6 space-y-4">
                 <div class="flex items-center justify-between border-b border-slate-800/80 pb-4">
                     <div>
                         <h3 class="font-bold text-base text-white flex items-center gap-2">
-                            <i class="fa-solid fa-bolt text-indigo-400"></i> Eşzamanlılık &amp; Race Condition Simülatörü
+                            <i class="fa-solid fa-clock-rotate-left text-indigo-400"></i> Son Transferler
                         </h3>
-                        <p class="text-xs text-slate-400 mt-0.5">
-                            PostgreSQL <code class="text-indigo-300 font-mono text-[11px]">PESSIMISTIC_WRITE</code> + Deterministik Kilit Sırası
-                        </p>
+                        <p class="text-xs text-slate-400 mt-0.5">Görebildiğiniz en son transferler</p>
                     </div>
-                    <span class="text-[11px] font-mono px-2.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">
-                        Sıfır Eksi Bakiye Garantisi
-                    </span>
+                    <button onclick="fetchTransfers()" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 flex items-center gap-1.5 transition">
+                        <i class="fa-solid fa-arrows-rotate"></i> Yenile
+                    </button>
                 </div>
-
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
-                    <div>
-                        <label class="block text-xs font-medium text-slate-300 mb-1.5">Kaynak (Charlie) &rarr; Hedef</label>
-                        <select id="simTarget" class="fintech-input w-full px-2.5 py-2 text-xs"></select>
-                    </div>
-                    <div>
-                        <div class="flex items-center justify-between mb-1.5">
-                            <label class="block text-xs font-medium text-slate-300">Eşzamanlı Thread</label>
-                            <div class="flex gap-1 text-[10px] font-mono">
-                                <button type="button" onclick="setSimThreads(10)" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300">10</button>
-                                <button type="button" onclick="setSimThreads(50)" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300">50</button>
-                                <button type="button" onclick="setSimThreads(100)" class="px-1.5 py-0.5 rounded bg-indigo-600/30 text-indigo-300 font-bold border border-indigo-500/40">100 🔥</button>
-                            </div>
-                        </div>
-                        <input id="simCount" type="number" min="2" max="200" value="100" class="fintech-input w-full px-2.5 py-2 text-xs code-font text-white font-bold" onchange="updateSimBtnText(this.value)">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-slate-300 mb-1.5">Çekim / Thread (₺)</label>
-                        <input id="simAmount" type="number" step="0.01" value="100.00" class="fintech-input w-full px-2.5 py-2 text-xs code-font text-white">
-                    </div>
-                </div>
-
-                <!-- Scenario Explanation Box -->
-                <div class="p-3.5 bg-[#0A0F1D] rounded-xl border border-slate-800/80 text-xs text-slate-300 space-y-1.5">
-                    <div class="flex items-center justify-between">
-                        <span class="font-semibold text-indigo-300 flex items-center gap-1.5">
-                            <i class="fa-solid fa-microchip"></i> Stres Senaryosu:
-                        </span>
-                        <span class="text-[11px] text-slate-400 font-mono">Charlie Başlangıç Bakiyesi: ₺250,00</span>
-                    </div>
-                    <p class="text-slate-400">
-                        10 paralel thread aynı milisaniyede <strong>₺100,00</strong> çekmeye çalışır (İstenen toplam: <strong>₺1.000,00</strong>).
-                    </p>
-                    <p class="text-slate-200">
-                        <span class="text-emerald-400 font-semibold">&check; Beklenen Sonuç:</span> Pessimistic Row Lock sayesinde tam <strong>2 istek</strong> onaylanır, <strong>8 istek</strong> engellenir. Charlie'nin son bakiyesi eksiye düşmeden tam <strong>₺50,00</strong> kalır!
-                    </p>
-                </div>
-
-                <!-- Sleek Fintech Action Button -->
-                <button id="btnSimulation" onclick="runSimulation()" class="w-full py-3 px-5 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 hover:from-indigo-900 hover:to-purple-900 text-indigo-200 hover:text-white font-semibold rounded-xl border border-indigo-500/40 shadow-lg shadow-indigo-950/60 hover:shadow-indigo-500/20 transition-all duration-300 flex items-center justify-center gap-2.5 text-xs tracking-wider uppercase group">
-                    <i class="fa-solid fa-bolt text-indigo-400 group-hover:text-amber-300 transition-colors"></i>
-                    <span>100 Paralel Thread'i Aynı Anda Ateşle</span>
-                </button>
-
-                <!-- Simulation Result Dashboard -->
-                <div id="simResult" class="hidden rounded-xl p-4 bg-[#0A0F1D] border border-slate-800 space-y-3">
-                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-center">
-                        <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800">
-                            <span class="text-[10px] text-slate-400 block uppercase tracking-wider">Toplam İstek</span>
-                            <span id="resTotal" class="text-base font-bold code-font text-white">0</span>
-                        </div>
-                        <div class="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-                            <span class="text-[10px] text-emerald-400 block uppercase tracking-wider">Başarılı</span>
-                            <span id="resSuccess" class="text-base font-bold code-font text-emerald-400">0</span>
-                        </div>
-                        <div class="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20">
-                            <span class="text-[10px] text-rose-400 block uppercase tracking-wider">Engellenen (Korumalı)</span>
-                            <span id="resFailed" class="text-base font-bold code-font text-rose-400">0</span>
-                        </div>
-                        <div class="p-2.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20">
-                            <span class="text-[10px] text-indigo-400 block uppercase tracking-wider">Gecikme (Latency)</span>
-                            <span id="resDuration" class="text-base font-bold code-font text-indigo-300">0 ms</span>
-                        </div>
-                    </div>
-
-                    <div class="p-2.5 rounded-lg bg-[#070A12] border border-slate-800/80 text-[11px] font-mono max-h-36 overflow-y-auto space-y-1" id="simThreadLogs">
-                    </div>
-                </div>
+                <div class="space-y-2 max-h-96 overflow-y-auto" id="transfersList"></div>
             </div>
         </section>
 
         <!-- High-Level Payment Processing System (Gateway & Webhook Lifecycle) -->
-        <section class="fintech-card rounded-2xl p-6 space-y-5 border border-indigo-500/20">
+        <section id="gatewaySection" class="fintech-card rounded-2xl p-6 space-y-5 border border-indigo-500/20">
             <div class="flex items-center justify-between border-b border-slate-800/80 pb-4">
                 <div>
                     <h3 class="font-bold text-base text-white flex items-center gap-2">
@@ -319,8 +255,8 @@
                 </div>
             </div>
 
-            <!-- Visual Flow Bar Matching the Architecture Diagram -->
-            <div class="grid grid-cols-2 md:grid-cols-6 gap-2 text-center text-[11px] font-mono">
+            <!-- Visual Flow Bar -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-center text-[11px] font-mono">
                 <div class="p-2 rounded-lg bg-[#0A0F1D] border border-slate-800 transition-all duration-300" id="step1">
                     <span class="text-blue-400 font-bold block">1. User &amp; Frontend</span>
                     <span class="text-slate-400 text-[10px]">Clicks "Pay" + Idemp-Key</span>
@@ -334,16 +270,8 @@
                     <span class="text-slate-400 text-[10px]">Stripe/PayPal (AUTH)</span>
                 </div>
                 <div class="p-2 rounded-lg bg-[#0A0F1D] border border-slate-800 transition-all duration-300" id="step4">
-                    <span class="text-amber-400 font-bold block">4. Webhook Listener</span>
-                    <span class="text-slate-400 text-[10px]">HMAC-SHA256 Signature</span>
-                </div>
-                <div class="p-2 rounded-lg bg-[#0A0F1D] border border-slate-800 transition-all duration-300" id="step5">
-                    <span class="text-emerald-400 font-bold block">5. Update Ledger</span>
-                    <span class="text-slate-400 text-[10px]">Record CAPTURED</span>
-                </div>
-                <div class="p-2 rounded-lg bg-[#0A0F1D] border border-slate-800 transition-all duration-300" id="step6">
-                    <span class="text-rose-400 font-bold block">6. Order Fulfillment</span>
-                    <span class="text-slate-400 text-[10px]">Kafka Outbox Trigger</span>
+                    <span class="text-amber-400 font-bold block">4. Sağlayıcı Onayı</span>
+                    <span class="text-slate-400 text-[10px]">Ödeme sağlayıcısının onayı bekleniyor</span>
                 </div>
             </div>
 
@@ -374,13 +302,7 @@
             <!-- Action Buttons -->
             <div class="flex flex-wrap gap-3">
                 <button id="btnGwAuthorize" onclick="runGatewayAuthorize()" class="flex-1 py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow-lg shadow-indigo-500/20">
-                    <i class="fa-solid fa-credit-card"></i> 1. Pay with Gateway (Authorize)
-                </button>
-                <button id="btnGwWebhook" onclick="runGatewayWebhook()" class="flex-1 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/20 disabled:opacity-40 disabled:cursor-not-allowed" disabled>
-                    <i class="fa-solid fa-satellite-dish"></i> 2. Simulate Webhook (Capture &amp; Settle)
-                </button>
-                <button onclick="runAutomatedGatewayFlow()" class="py-2.5 px-4 bg-gradient-to-r from-slate-800 to-indigo-900 hover:from-slate-700 hover:to-indigo-800 text-white font-semibold rounded-xl text-xs transition flex items-center justify-center gap-1.5 border border-indigo-500/30">
-                    <i class="fa-solid fa-wand-magic-sparkles text-indigo-400"></i> Tam Otomatik Akış (1-Click E2E)
+                    <i class="fa-solid fa-credit-card"></i> Öde (Pay with Gateway)
                 </button>
             </div>
 
@@ -393,7 +315,7 @@
         <section class="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
             <!-- Ledger (Double-Entry Bookkeeping Statement) -->
-            <div class="lg:col-span-6 fintech-card rounded-2xl p-6 space-y-4">
+            <div id="ledgerCard" class="lg:col-span-6 fintech-card rounded-2xl p-6 space-y-4">
                 <div class="flex items-center justify-between border-b border-slate-800/80 pb-3">
                     <h3 class="font-bold text-base text-white flex items-center gap-2">
                         <i class="fa-solid fa-receipt text-indigo-400"></i> Çift Taraflı Ekstre (Double-Entry Ledger)
@@ -422,7 +344,7 @@
             </div>
 
             <!-- Transactional Outbox & Kafka DLQ Monitor -->
-            <div class="lg:col-span-6 fintech-card rounded-2xl p-6 space-y-4">
+            <div id="outboxCard" class="lg:col-span-6 fintech-card rounded-2xl p-6 space-y-4">
                 <div class="flex items-center justify-between border-b border-slate-800/80 pb-3">
                     <div class="flex items-center gap-2">
                         <h3 class="font-bold text-base text-white flex items-center gap-2">
@@ -450,7 +372,45 @@
 
     <!-- Frontend Script with Enhanced Fintech Typography & Formatting -->
     <script>
+        const keycloak = (typeof Keycloak !== 'undefined') ? new Keycloak({
+            url: 'http://localhost:8180',
+            realm: 'mutabik',
+            clientId: 'mutabik-console'
+        }) : null;
+
         let accounts = [];
+        let recipients = [];
+        let isAdmin = false;
+
+        // Convenience-only role detection: the server enforces every rule.
+        function detectRoles() {
+            const roles = (keycloak.tokenParsed && keycloak.tokenParsed.realm_access && keycloak.tokenParsed.realm_access.roles) || [];
+            isAdmin = roles.includes('ADMIN');
+            const isCustomer = roles.includes('CUSTOMER');
+            return { isAdmin, isCustomer };
+        }
+
+        function esc(v) {
+            return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
+
+        // Single entry point for every backend call: refreshes the token, adds the bearer header, re-logins on 401.
+        async function api(path, options) {
+            options = options || {};
+            try {
+                await keycloak.updateToken(30);
+            } catch (e) {
+                keycloak.login();
+                throw new Error('Oturum yenilenemedi');
+            }
+            const headers = Object.assign({}, options.headers, { 'Authorization': 'Bearer ' + keycloak.token });
+            const res = await fetch(path, Object.assign({}, options, { headers }));
+            if (res.status === 401) {
+                keycloak.login();
+                throw new Error('Oturum geçersiz, yeniden giriş yapılıyor');
+            }
+            return res;
+        }
 
         // Financial typography formatter: White bold integer + lighter gray cents
         function formatMoney(amount) {
@@ -494,14 +454,31 @@
             document.getElementById('idempotencyKey').value = generateUUID();
         }
 
+        function problemText(data, fallback) {
+            return esc((data && (data.detail || data.title)) || fallback);
+        }
+
         async function fetchAccounts() {
             try {
-                const res = await fetch('/api/v1/accounts');
+                const res = await api('/api/v1/accounts');
+                if (!res.ok) throw new Error('HTTP ' + res.status);
                 accounts = await res.json();
                 renderAccounts();
                 populateDropdowns();
             } catch (err) {
                 console.error("Hesaplar yüklenemedi", err);
+            }
+        }
+
+        async function fetchRecipients() {
+            if (isAdmin) return;
+            try {
+                const res = await api('/api/v1/accounts/recipients');
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                recipients = await res.json();
+                populateRecipients();
+            } catch (err) {
+                console.error("Alıcılar yüklenemedi", err);
             }
         }
 
@@ -511,7 +488,7 @@
                 const info = formatAccountLabel(acc);
                 const isTreasury = acc.customerNumber.includes('Treasury');
                 const isCharlie = acc.customerNumber.includes('Charlie');
-                
+
                 let badgeColor = "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
                 let icon = "fa-user-check";
                 if (isTreasury) {
@@ -530,15 +507,15 @@
                                     <i class="fa-solid ${icon}"></i>
                                 </div>
                                 <div>
-                                    <span class="text-sm font-semibold text-white block leading-tight">${info.name}</span>
-                                    <span class="text-[11px] font-mono text-slate-400">${info.ibanCompact}</span>
+                                    <span class="text-sm font-semibold text-white block leading-tight">${esc(info.name)}</span>
+                                    <span class="text-[11px] font-mono text-slate-400">${esc(info.ibanCompact)}</span>
                                 </div>
                             </div>
                             <span class="text-[10px] px-2 py-0.5 rounded-full border ${badgeColor} font-mono uppercase tracking-wider">
-                                ${acc.status}
+                                ${esc(acc.status)}
                             </span>
                         </div>
-                        
+
                         <div class="mt-4">
                             <span class="text-[10px] text-slate-400 uppercase tracking-wider font-medium block mb-1">Kullanılabilir Bakiye</span>
                             <div class="text-2xl font-bold tracking-tight text-white flex items-baseline">
@@ -547,8 +524,8 @@
                         </div>
 
                         <div class="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400 font-mono">
-                            <span class="text-slate-400">ID: ${acc.accountId.substring(0, 8)}...</span>
-                            <button onclick="navigator.clipboard.writeText('${acc.accountId}'); alert('Hesap ID kopyalandı!')" class="hover:text-slate-200 transition" title="Hesap ID Kopyala">
+                            <span class="text-slate-400">ID: ${esc(acc.accountId.substring(0, 8))}...</span>
+                            <button onclick="navigator.clipboard.writeText('${esc(acc.accountId)}'); alert('Hesap ID kopyalandı!')" class="hover:text-slate-200 transition" title="Hesap ID Kopyala">
                                 <i class="fa-regular fa-copy"></i>
                             </button>
                         </div>
@@ -558,42 +535,42 @@
         }
 
         function populateDropdowns() {
-            const src = document.getElementById('transferSource');
-            const tgt = document.getElementById('transferTarget');
-            const simTgt = document.getElementById('simTarget');
             const ledgerSel = document.getElementById('ledgerAccountSelect');
+            const src = document.getElementById('transferSource');
             const gwCustomer = document.getElementById('gwCustomer');
-            const gwMerchant = document.getElementById('gwMerchant');
 
             const options = accounts.map(a => {
                 const info = formatAccountLabel(a);
                 const balFormatted = Number(a.balance).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                return `<option value="${a.accountId}">${info.name} (${info.ibanCompact}) — ₺${balFormatted}</option>`;
+                return `<option value="${esc(a.accountId)}">${esc(info.name)} (${esc(info.ibanCompact)}) — ₺${balFormatted}</option>`;
             }).join('');
 
-            src.innerHTML = options;
-            tgt.innerHTML = options;
-            simTgt.innerHTML = options;
+            // Ledger: customer sees only own account, admin sees all (server filters the list).
+            const previous = ledgerSel.value;
             ledgerSel.innerHTML = options;
-            if (gwCustomer) gwCustomer.innerHTML = options;
-            if (gwMerchant) gwMerchant.innerHTML = options;
+            if (previous && accounts.some(a => a.accountId === previous)) ledgerSel.value = previous;
 
-            if (accounts.length > 1) {
-                tgt.selectedIndex = 1;
-                simTgt.selectedIndex = 1;
-                if (gwMerchant) gwMerchant.selectedIndex = 1;
+            // Customer: source = own account, fixed. Admin has no transfer/gateway forms.
+            if (!isAdmin) {
+                src.innerHTML = options;
+                src.disabled = true;
+                gwCustomer.innerHTML = options;
+                gwCustomer.disabled = true;
             }
         }
 
-        async function resetBalances() {
-            try {
-                await fetch('/api/v1/accounts/reset', { method: 'POST' });
-                await fetchAccounts();
-                await loadStatement();
-                await fetchOutbox();
-            } catch (err) {
-                alert("Sıfırlama başarısız: " + err.message);
-            }
+        function populateRecipients() {
+            const own = new Set(accounts.map(a => a.accountId));
+            const list = recipients.filter(r => !own.has(r.accountId));
+            const options = list.map(r => `<option value="${esc(r.accountId)}">${esc(r.displayName)} (${esc(r.maskedIban)})</option>`).join('')
+                || '<option value="">Alıcı bulunamadı</option>';
+            const tgt = document.getElementById('transferTarget');
+            const merchant = document.getElementById('gwMerchant');
+            const tgtPrev = tgt.value, merchPrev = merchant.value;
+            tgt.innerHTML = options;
+            merchant.innerHTML = options;
+            if (tgtPrev) tgt.value = tgtPrev;
+            if (merchPrev) merchant.value = merchPrev;
         }
 
         async function executeTransfer() {
@@ -608,7 +585,7 @@
             btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> İşleniyor...`;
 
             try {
-                const res = await fetch('/api/v1/transfers', {
+                const res = await api('/api/v1/transfers', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -634,104 +611,64 @@
                     resultBox.className = "rounded-xl p-4 bg-emerald-950/40 border border-emerald-500/30 text-xs space-y-1.5 text-emerald-200";
                     resultBox.innerHTML = `
                         <div class="flex items-center justify-between">
-                            <strong>${data.message}</strong>
+                            <strong>${esc(data.message)}</strong>
                             ${replayTag}
                         </div>
                         <div class="font-mono text-[11px] text-slate-300">
-                            TxID: ${data.transferId} | Tutar: ₺${data.amount} | Durum: ${data.status}
+                            TxID: ${esc(data.transferId)} | Tutar: ₺${esc(data.amount)} | Durum: ${esc(data.status)}
                         </div>
                     `;
                 } else {
                     resultBox.className = "rounded-xl p-4 bg-rose-950/40 border border-rose-500/30 text-xs space-y-1.5 text-rose-200";
                     resultBox.innerHTML = `
                         <div class="font-bold flex items-center gap-1.5">
-                            <i class="fa-solid fa-triangle-exclamation text-rose-400"></i> ${data.title || 'İşlem Reddedildi'} (${data.status})
+                            <i class="fa-solid fa-triangle-exclamation text-rose-400"></i> ${esc(data.title || 'İşlem Reddedildi')} (${esc(data.status || res.status)})
                         </div>
-                        <p>${data.detail || 'Bilinmeyen hata'}</p>
+                        <p>${esc(data.detail || 'Bilinmeyen hata')}</p>
                     `;
                 }
 
-                await fetchAccounts();
-                await loadStatement();
-                await fetchOutbox();
+                await refreshAll();
             } catch (err) {
                 resultBox.classList.remove('hidden');
                 resultBox.className = "rounded-xl p-4 bg-rose-950/40 border border-rose-500/30 text-xs text-rose-200";
-                resultBox.innerHTML = `Hata: ${err.message}`;
+                resultBox.innerHTML = `Hata: ${esc(err.message)}`;
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = `<i class="fa-solid fa-shield-halved"></i> Transferi Gönder`;
             }
         }
 
-        async function runSimulation() {
-            const btn = document.getElementById('btnSimulation');
-            const simResult = document.getElementById('simResult');
-            const charlie = accounts.find(a => a.customerNumber.includes('Charlie'));
-            const targetId = document.getElementById('simTarget').value;
-            const count = parseInt(document.getElementById('simCount').value);
-            const amount = parseFloat(document.getElementById('simAmount').value);
-
-            if (!charlie) {
-                alert("Charlie hesabı bulunamadı.");
-                return;
-            }
-
-            btn.disabled = true;
-            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Paralel Thread'ler Çalışıyor...`;
-
+        async function fetchTransfers() {
             try {
-                const res = await fetch('/api/v1/simulation/concurrency', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        sourceAccountId: charlie.accountId,
-                        targetAccountId: targetId,
-                        concurrencyCount: count,
-                        amountPerTransfer: amount
-                    })
-                });
-
-                const data = await res.json();
-                simResult.classList.remove('hidden');
-
-                document.getElementById('resTotal').innerText = data.totalRequests;
-                document.getElementById('resSuccess').innerText = data.successfulRequests;
-                document.getElementById('resFailed').innerText = data.failedRequests;
-                document.getElementById('resDuration').innerText = data.executionDurationMs + ' ms';
-
-                const logsBox = document.getElementById('simThreadLogs');
-                logsBox.innerHTML = data.threadLogs.map(log => {
-                    const isSucc = log.includes('SUCCESS');
-                    return `<div class="${isSucc ? 'text-emerald-400' : 'text-rose-400'}">${log}</div>`;
-                }).join('');
-
-                await fetchAccounts();
-                await loadStatement();
-                await fetchOutbox();
+                const res = await api('/api/v1/transfers');
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const items = await res.json();
+                const list = document.getElementById('transfersList');
+                if (!items.length) {
+                    list.innerHTML = `<div class="text-center text-slate-500 text-xs py-4">Henüz transfer yok.</div>`;
+                    return;
+                }
+                const nameOf = id => {
+                    const a = accounts.find(x => x.accountId === id);
+                    if (a) return formatAccountLabel(a).name;
+                    const r = recipients.find(x => x.accountId === id);
+                    return r ? r.displayName : String(id).substring(0, 8) + '…';
+                };
+                list.innerHTML = items.map(t => `
+                    <div class="p-2.5 rounded-lg bg-[#0A0F1D] border border-slate-800/80 flex items-center justify-between text-xs font-mono">
+                        <div>
+                            <span class="text-white font-bold">${esc(nameOf(t.sourceAccountId))} &rarr; ${esc(nameOf(t.targetAccountId))}</span>
+                            <span class="text-slate-400 block text-[10px]">${esc(t.gatewayType || 'INTERNAL')} &bull; ${esc(new Date(t.createdAt).toLocaleString('tr-TR'))}</span>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-indigo-300 font-semibold block">₺${esc(Number(t.amount).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))}</span>
+                            <span class="px-2 py-0.5 rounded text-[10px] bg-slate-800 text-slate-300 border border-slate-700/60">${esc(t.status)}</span>
+                        </div>
+                    </div>
+                `).join('');
             } catch (err) {
-                alert("Simülasyon hatası: " + err.message);
-            } finally {
-                btn.disabled = false;
-                const finalCount = document.getElementById('simCount').value || 100;
-                btn.innerHTML = `
-                    <i class="fa-solid fa-bolt text-indigo-400 group-hover:text-amber-300 transition-colors"></i>
-                    <span>${finalCount} Paralel Thread'i Aynı Anda Ateşle</span>
-                `;
-            }
-        }
-
-        function setSimThreads(n) {
-            document.getElementById('simCount').value = n;
-            updateSimBtnText(n);
-        }
-
-        function updateSimBtnText(n) {
-            const btn = document.getElementById('btnSimulation');
-            if (btn) {
-                const count = n || document.getElementById('simCount').value || 100;
-                const span = btn.querySelector('span');
-                if (span) span.innerText = `${count} Paralel Thread'i Aynı Anda Ateşle`;
+                console.error("Transferler yüklenemedi", err);
             }
         }
 
@@ -740,9 +677,14 @@
             if (!sel.value) return;
 
             try {
-                const res = await fetch(`/api/v1/accounts/${sel.value}/statement`);
+                const res = await api(`/api/v1/accounts/${encodeURIComponent(sel.value)}/statement`);
                 const data = await res.json();
                 const tbody = document.getElementById('ledgerTableBody');
+
+                if (!res.ok) {
+                    tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-rose-400">${problemText(data, 'Ekstre alınamadı')}</td></tr>`;
+                    return;
+                }
 
                 if (!data.items || data.items.length === 0) {
                     tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-500">Bu hesap için henüz hareket bulunmuyor.</td></tr>`;
@@ -757,14 +699,14 @@
                         <tr class="hover:bg-slate-800/40 transition">
                             <td class="p-2.5">
                                 <span class="px-2 py-0.5 rounded text-[10px] ${isDebit ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'} font-bold">
-                                    ${e.type}
+                                    ${esc(e.type)}
                                 </span>
                             </td>
                             <td class="p-2.5 font-semibold ${isDebit ? 'text-rose-400' : 'text-emerald-400'}">
                                 ${isDebit ? '-' : '+'}₺${amountFormatted}
                             </td>
                             <td class="p-2.5 text-white font-mono">₺${balAfterFormatted}</td>
-                            <td class="p-2.5 text-slate-400 truncate max-w-[140px]" title="${e.description}">${e.description}</td>
+                            <td class="p-2.5 text-slate-400 truncate max-w-[140px]" title="${esc(e.description)}">${esc(e.description)}</td>
                             <td class="p-2.5 text-slate-400 text-[10px]">${new Date(e.createdAt).toLocaleTimeString()}</td>
                         </tr>
                     `;
@@ -775,8 +717,10 @@
         }
 
         async function fetchOutbox() {
+            if (!isAdmin) return;
             try {
-                const res = await fetch('/api/v1/outbox');
+                const res = await api('/api/v1/outbox');
+                if (!res.ok) throw new Error('HTTP ' + res.status);
                 const events = await res.json();
                 const list = document.getElementById('outboxEventsList');
 
@@ -790,11 +734,11 @@
                     return `
                         <div class="p-2.5 rounded-lg bg-[#0A0F1D] border border-slate-800/80 flex items-center justify-between text-xs font-mono">
                             <div>
-                                <span class="text-purple-400 font-bold">${ev.eventType}</span>
-                                <span class="text-slate-400 block text-[10px]">ID: ${ev.id.substring(0, 18)}...</span>
+                                <span class="text-purple-400 font-bold">${esc(ev.eventType)}</span>
+                                <span class="text-slate-400 block text-[10px]">ID: ${esc(String(ev.id).substring(0, 18))}...</span>
                             </div>
                             <span class="px-2 py-0.5 rounded text-[10px] ${isPub ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}">
-                                ${ev.status}
+                                ${esc(ev.status)}
                             </span>
                         </div>
                     `;
@@ -803,8 +747,6 @@
                 console.error("Outbox listeleme hatası", err);
             }
         }
-
-        let lastGatewayData = null;
 
         function setStepActive(stepNum, active, success) {
             const el = document.getElementById('step' + stepNum);
@@ -820,7 +762,6 @@
 
         async function runGatewayAuthorize() {
             const btnAuth = document.getElementById('btnGwAuthorize');
-            const btnWebhook = document.getElementById('btnGwWebhook');
             const resultBox = document.getElementById('gwResultBox');
             const custId = document.getElementById('gwCustomer').value;
             const merchId = document.getElementById('gwMerchant').value;
@@ -831,9 +772,10 @@
             setStepActive(1, true, false);
             setStepActive(2, false, false);
             setStepActive(3, false, false);
+            setStepActive(4, false, false);
 
             try {
-                const res = await fetch('/api/v1/gateway/pay', {
+                const res = await api('/api/v1/gateway/pay', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -845,119 +787,105 @@
                         amount: amount,
                         currency: 'TRY',
                         gatewayType: provider,
-                        customerEmail: 'customer@checkout.com',
+                        customerEmail: (keycloak.tokenParsed && keycloak.tokenParsed.email) || 'customer@checkout.com',
                         description: provider + ' E-Commerce Checkout'
                     })
                 });
 
                 const data = await res.json();
-                lastGatewayData = data;
                 resultBox.classList.remove('hidden');
 
                 if (res.ok) {
                     setStepActive(1, false, true);
                     setStepActive(2, false, true);
                     setStepActive(3, false, true);
-                    btnWebhook.disabled = false;
+                    setStepActive(4, true, false);
 
+                    const waiting = data.status === 'AUTHORIZED'
+                        ? 'ödeme sağlayıcısının onayı bekleniyor'
+                        : esc(data.status);
                     resultBox.innerHTML = `
                         <div class="text-indigo-400 font-bold flex items-center gap-2">
-                            <i class="fa-solid fa-check"></i> ${provider} Yetkilendirmesi Başarılı (Status: ${data.status})
+                            <i class="fa-solid fa-check"></i> ${esc(provider)} Yetkilendirmesi Başarılı (Status: ${esc(data.status)})
+                        </div>
+                        <div class="text-amber-300">
+                            <i class="fa-solid fa-hourglass-half"></i> ${waiting}
                         </div>
                         <div class="text-slate-300">
-                            <strong>External Ref ID:</strong> <span class="text-amber-300">${data.externalReferenceId}</span><br>
-                            <strong>Client Secret:</strong> <span class="text-slate-400">${data.clientSecret}</span><br>
-                            <strong>Transfer ID:</strong> ${data.transferId} | <strong>Tutar:</strong> ₺${data.amount}
-                        </div>
-                        <div class="text-[11px] text-slate-400">
-                            💡 Şemadaki 3. adım tamamlandı. Şimdi '2. Simulate Webhook' butonuna basarak Gateway'in CAPTURED webhook'unu tetikleyebilirsiniz.
+                            <strong>External Ref ID:</strong> <span class="text-amber-300">${esc(data.externalReferenceId)}</span><br>
+                            <strong>Transfer ID:</strong> ${esc(data.transferId)} | <strong>Tutar:</strong> ₺${esc(data.amount)}
                         </div>
                     `;
                 } else {
-                    resultBox.innerHTML = `<div class="text-rose-400">Yetkilendirme Hatası: ${data.detail || data.title}</div>`;
+                    resultBox.innerHTML = `<div class="text-rose-400">Yetkilendirme Hatası: ${problemText(data, 'Bilinmeyen hata')}</div>`;
                 }
 
-                await fetchAccounts();
-                await fetchOutbox();
+                await refreshAll();
             } catch (err) {
                 resultBox.classList.remove('hidden');
-                resultBox.innerHTML = `<div class="text-rose-400">Hata: ${err.message}</div>`;
+                resultBox.innerHTML = `<div class="text-rose-400">Hata: ${esc(err.message)}</div>`;
             } finally {
                 btnAuth.disabled = false;
             }
         }
 
-        async function runGatewayWebhook() {
-            if (!lastGatewayData || !lastGatewayData.externalReferenceId) {
-                alert("Önce 1. adımdaki Gateway Authorize işlemini çalıştırın.");
-                return;
-            }
-
-            const btnWebhook = document.getElementById('btnGwWebhook');
-            const resultBox = document.getElementById('gwResultBox');
-            btnWebhook.disabled = true;
-            setStepActive(4, true, false);
-
-            try {
-                const res = await fetch('/api/v1/webhooks/gateway/simulate', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        externalReferenceId: lastGatewayData.externalReferenceId,
-                        amount: lastGatewayData.amount,
-                        currency: 'TRY'
-                    })
-                });
-
-                const data = await res.json();
-
-                if (res.ok) {
-                    setStepActive(4, false, true);
-                    setStepActive(5, false, true);
-                    setStepActive(6, false, true);
-
-                    resultBox.innerHTML += `
-                        <div class="border-t border-slate-800 pt-2 mt-2">
-                            <div class="text-emerald-400 font-bold flex items-center gap-2">
-                                <i class="fa-solid fa-shield-halved"></i> Webhook İmzası (HMAC-SHA256) Doğrulandı &bull; Status: ${data.status}
-                            </div>
-                            <div class="text-slate-300">
-                                ${data.message}
-                            </div>
-                            <div class="text-xs text-rose-400 mt-1">
-                                &check; Transactional Outbox üzerinden <strong>Order Fulfillment</strong> event'i Kafka'ya fırlatıldı!
-                            </div>
-                        </div>
-                    `;
-                } else {
-                    resultBox.innerHTML += `<div class="text-rose-400">Webhook Hatası: ${data.detail || data.title}</div>`;
-                }
-
-                await fetchAccounts();
-                await loadStatement();
-                await fetchOutbox();
-            } catch (err) {
-                resultBox.innerHTML += `<div class="text-rose-400">Hata: ${err.message}</div>`;
-            }
-        }
-
-        async function runAutomatedGatewayFlow() {
-            await runGatewayAuthorize();
-            await new Promise(r => setTimeout(r, 800));
-            await runGatewayWebhook();
-        }
-
         async function publishOutboxNow() {
-            await fetch('/api/v1/outbox/publish-now', { method: 'POST' });
+            await api('/api/v1/outbox/publish-now', { method: 'POST' });
             await fetchOutbox();
         }
 
-        // Initialize
-        generateNewKey();
-        fetchAccounts().then(() => {
-            loadStatement();
-            fetchOutbox();
-        });
+        async function refreshAll() {
+            await fetchAccounts();
+            await Promise.all([loadStatement(), fetchTransfers(), fetchOutbox()]);
+        }
+
+        // Role-aware layout. Hiding is a convenience only; the server enforces access.
+        function applyRoleView() {
+            const { isAdmin: admin, isCustomer } = detectRoles();
+            const role = admin ? 'ADMIN' : (isCustomer ? 'CUSTOMER' : 'ROL YOK');
+            document.getElementById('userName').textContent = keycloak.tokenParsed.preferred_username || '';
+            const badge = document.getElementById('roleBadge');
+            badge.textContent = role;
+            badge.className = "text-[10px] font-mono px-2 py-0.5 rounded-full border font-medium " + (admin
+                ? "bg-purple-500/10 text-purple-300 border-purple-500/30"
+                : "bg-emerald-500/10 text-emerald-300 border-emerald-500/30");
+
+            if (admin) {
+                document.getElementById('transferCard').classList.add('hidden');
+                document.getElementById('gatewaySection').classList.add('hidden');
+                document.getElementById('transfersCard').classList.remove('lg:col-span-7');
+                document.getElementById('transfersCard').classList.add('lg:col-span-12');
+            } else {
+                document.getElementById('outboxCard').classList.add('hidden');
+                document.getElementById('ledgerCard').classList.remove('lg:col-span-6');
+                document.getElementById('ledgerCard').classList.add('lg:col-span-12');
+            }
+            if (!admin && !isCustomer) {
+                document.getElementById('transferCard').classList.add('hidden');
+                document.getElementById('gatewaySection').classList.add('hidden');
+            }
+        }
+
+        async function start() {
+            if (!keycloak) {
+                document.body.innerHTML = '<div class="p-8 text-rose-300 text-sm">Kimlik doğrulama kütüphanesi (keycloak-js) yüklenemedi.</div>';
+                return;
+            }
+            try {
+                await keycloak.init({ onLoad: 'login-required', pkceMethod: 'S256', checkLoginIframe: false });
+            } catch (err) {
+                console.error('Keycloak başlatılamadı', err);
+                document.body.innerHTML = '<div class="p-8 text-rose-300 text-sm">Giriş başlatılamadı. Keycloak (localhost:8180) çalışıyor mu?</div>';
+                return;
+            }
+            applyRoleView();
+            generateNewKey();
+            await fetchAccounts();
+            await fetchRecipients();
+            await Promise.all([loadStatement(), fetchTransfers(), fetchOutbox()]);
+        }
+
+        start();
     </script>
 </body>
 </html>
