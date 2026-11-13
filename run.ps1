@@ -30,7 +30,7 @@ if (-not (Test-Path $mavenCmd)) {
 Write-Host "[OK] Maven aktif: $mavenCmd" -ForegroundColor Green
 
 if ($Docker) {
-    Write-Host "[DOCKER] PostgreSQL, Redis, Kafka, Prometheus ve Grafana ayağa kaldırılıyor..." -ForegroundColor Magenta
+    Write-Host "[DOCKER] PostgreSQL, Redis, Kafka, Keycloak, Prometheus ve Grafana ayağa kaldırılıyor..." -ForegroundColor Magenta
     docker compose -f docker/docker-compose.yml up -d
     Write-Host "[OK] Altyapı konteynerleri hazır!" -ForegroundColor Green
     exit 0
@@ -43,6 +43,8 @@ if ($Test) {
 }
 
 if ($Local) {
+    Write-Host "[DOCKER] Giriş için yalnızca Keycloak başlatılıyor (http://localhost:8180)..." -ForegroundColor Magenta
+    docker compose -f docker/docker-compose.yml up -d keycloak
     Write-Host "[RUN] In-memory H2 profili ile başlatılıyor (Offline mod)..." -ForegroundColor Yellow
     & $mavenCmd -pl payment-api spring-boot:run -Dspring-boot.run.profiles=local
 } else {

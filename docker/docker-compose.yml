@@ -65,13 +65,33 @@ services:
       - SPRING_DATA_REDIS_HOST=redis
       - SPRING_DATA_REDIS_PORT=6379
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - MUTABIK_SECURITY_JWK_SET_URI=http://keycloak:8080/realms/mutabik/protocol/openid-connect/certs
+      # Local-development default only; set a real secret in any shared environment.
+      - PAYMENT_GATEWAY_WEBHOOK_SECRET=${PAYMENT_GATEWAY_WEBHOOK_SECRET:-whsec_fintech_production_secret_key_99}
     depends_on:
+      keycloak:
+        condition: service_started
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
       kafka:
         condition: service_started
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:25.0.6
+    container_name: mutabik-keycloak
+    command: start-dev --import-realm
+    ports:
+      - "8180:8080"
+    environment:
+      # master-realm admin console only; unrelated to the 'admin' user of the mutabik realm
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_HOSTNAME: http://localhost:8180
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+    volumes:
+      - ./keycloak:/opt/keycloak/data/import:ro
 
   prometheus:
     image: prom/prometheus:v2.53.0
