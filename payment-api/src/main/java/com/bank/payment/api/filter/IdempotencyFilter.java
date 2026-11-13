@@ -16,6 +16,8 @@ import java.io.IOException;
 public class IdempotencyFilter extends OncePerRequestFilter {
 
     public static final String IDEMPOTENCY_HEADER = "Idempotency-Key";
+    /** Keys are scoped with the requester id and stored in a 200-char column. */
+    public static final int MAX_KEY_LENGTH = 100;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -33,6 +35,19 @@ public class IdempotencyFilter extends OncePerRequestFilter {
                       "title": "Missing Idempotency-Key Header",
                       "status": 400,
                       "detail": "Para transferi isteklerinde 'Idempotency-Key' başlığı zorunludur."
+                    }
+                    """);
+                return;
+            }
+            if (idempotencyKey.length() > MAX_KEY_LENGTH) {
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
+                response.getWriter().write("""
+                    {
+                      "type": "about:blank",
+                      "title": "Invalid Idempotency-Key Header",
+                      "status": 400,
+                      "detail": "'Idempotency-Key' en fazla 100 karakter olabilir."
                     }
                     """);
                 return;

@@ -60,6 +60,23 @@ class AccountAccessPolicyTest {
     }
 
     @Test
+    void customerCannotSendToInactiveOwnedAccount() {
+        Account inactive = new Account(AccountId.generate(), "C-2", Money.of(100.00, Currency.TRY),
+                AccountStatus.SUSPENDED, 0L, "CUST-BOB");
+        assertThat(policy.canReceive(Requester.customer("CUST-ALICE"), inactive)).isFalse();
+        assertThatThrownBy(() -> policy.assertCanReceive(Requester.customer("CUST-ALICE"), inactive))
+                .isInstanceOf(AccountNotFoundException.class);
+    }
+
+    @Test
+    void systemCanReceiveOnAnyAccount() {
+        Account inactiveInternal = new Account(AccountId.generate(), "C-3", Money.of(100.00, Currency.TRY),
+                AccountStatus.SUSPENDED, 0L, null);
+        assertThat(policy.canReceive(Requester.system(), inactiveInternal)).isTrue();
+        assertThatCode(() -> policy.assertCanReceive(Requester.system(), inactiveInternal)).doesNotThrowAnyException();
+    }
+
+    @Test
     void customerCanViewOnlyOwnAccount() {
         Requester alice = Requester.customer("CUST-ALICE");
         assertThat(policy.canView(alice, account("CUST-ALICE"))).isTrue();

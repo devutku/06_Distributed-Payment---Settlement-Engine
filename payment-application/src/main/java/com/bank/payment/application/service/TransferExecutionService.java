@@ -105,9 +105,16 @@ public class TransferExecutionService implements InitiateTransferUseCase {
     }
 
     private TransferResultDto settleTransfer(InitiateTransferCommand command, IdempotencyKey scopedKey) {
-        // 3. Deterministic Locking Order: Always lock lower AccountId first
         AccountId sourceId = command.sourceAccountId();
         AccountId targetId = command.targetAccountId();
+
+        // Source existence + ownership is decided first (no lock, counterparty untouched), so a
+        // not-owned source and a non-existent source fail identically even if the target is missing.
+        Account sourcePreview = loadAccountPort.loadAccount(sourceId)
+                .orElseThrow(() -> new AccountNotFoundException(sourceId));
+        accessPolicy.assertCanMoveFundsFrom(command.requester(), sourcePreview);
+
+        // 3. Deterministic Locking Order: Always lock lower AccountId first
 
         AccountId firstId = sourceId.compareTo(targetId) < 0 ? sourceId : targetId;
         AccountId secondId = sourceId.compareTo(targetId) < 0 ? targetId : sourceId;
@@ -120,7 +127,7 @@ public class TransferExecutionService implements InitiateTransferUseCase {
         Account sourceAccount = sourceId.equals(firstId) ? firstLocked : secondLocked;
         Account targetAccount = targetId.equals(firstId) ? firstLocked : secondLocked;
 
-        // Ownership checks (both accounts locked); failures look like "not found"
+        // Re-check now that both accounts are locked; failures look like "not found"
         accessPolicy.assertCanMoveFundsFrom(command.requester(), sourceAccount);
         accessPolicy.assertCanReceive(command.requester(), targetAccount);
 

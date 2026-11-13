@@ -109,7 +109,20 @@ class GatewayPaymentWorkflowServiceTest {
         Account customer = new Account(CUSTOMER_ID, "CUST", Money.of(1000.00, Currency.TRY), AccountStatus.ACTIVE, 0L, "CUST-1");
         Account merchant = new Account(MERCHANT_ID, "MERCH", Money.of(0.00, Currency.TRY), AccountStatus.ACTIVE, 0L, "MERCH-1");
         when(loadAccountPort.loadAccount(CUSTOMER_ID)).thenReturn(Optional.of(customer));
-        when(loadAccountPort.loadAccount(MERCHANT_ID)).thenReturn(Optional.of(merchant));
+        lenient().when(loadAccountPort.loadAccount(MERCHANT_ID)).thenReturn(Optional.of(merchant));
+    }
+
+    @Test
+    @DisplayName("Not-owned source is decided before the merchant account is loaded")
+    void notOwnedSourceFailsBeforeMerchantIsLoaded() {
+        Account customer = new Account(CUSTOMER_ID, "CUST", Money.of(1000.00, Currency.TRY), AccountStatus.ACTIVE, 0L, "CUST-1");
+        when(loadAccountPort.loadAccount(CUSTOMER_ID)).thenReturn(Optional.of(customer));
+        when(idempotencyPort.acquireLock(any())).thenReturn(true);
+
+        assertThatThrownBy(() -> service.initiatePayment(paymentBy(Requester.customer("SOMEONE-ELSE"))))
+                .isInstanceOf(AccountNotFoundException.class);
+
+        verify(loadAccountPort, never()).loadAccount(MERCHANT_ID);
     }
 
     @Test
