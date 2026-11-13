@@ -1,7 +1,10 @@
 package com.bank.payment.infrastructure.messaging.kafka;
 
+import com.bank.payment.infrastructure.messaging.TraceParent;
 import com.bank.payment.infrastructure.persistence.entity.OutboxJpaEntity;
 import com.bank.payment.infrastructure.persistence.repository.SpringDataOutboxRepository;
+import io.micrometer.tracing.Span;
+import io.micrometer.tracing.Tracer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,12 +35,15 @@ public class KafkaTransferEventPublisher {
     private final SpringDataOutboxRepository outboxRepository;
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final long ackWaitMs;
+    private final Tracer tracer;
 
     public KafkaTransferEventPublisher(
             SpringDataOutboxRepository outboxRepository,
-            KafkaTemplate<String, String> kafkaTemplate) {
+            KafkaTemplate<String, String> kafkaTemplate,
+            Tracer tracer) {
         this.outboxRepository = outboxRepository;
         this.kafkaTemplate = kafkaTemplate;
+        this.tracer = tracer;
         this.ackWaitMs = deliveryTimeoutMs(kafkaTemplate) + ACK_WAIT_MARGIN_MS;
     }
 
@@ -65,17 +71,23 @@ public class KafkaTransferEventPublisher {
                 "PENDING", PageRequest.of(0, 50));
 
         for (OutboxJpaEntity event : pendingEvents) {
-            try {
+            // Continue the trace of the request that wrote this event, so API -> outbox -> Kafka is one trace
+            Span span = startPublishSpan(event);
+            try (Tracer.SpanInScope ignored = tracer.withSpan(span)) {
                 kafkaTemplate.send(KafkaConfig.TRANSFER_EVENTS_TOPIC, event.getAggregateId(), event.getPayload())
                         .get(ackWaitMs, TimeUnit.MILLISECONDS);
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
+                span.error(ex);
                 log.warn("Outbox publishing interrupted at event [{}]; will retry on next poll", event.getId());
                 return;
             } catch (ExecutionException | TimeoutException | RuntimeException ex) {
+                span.error(ex);
                 log.error("Kafka did not acknowledge Outbox event [{}]; leaving it PENDING for retry: {}",
                         event.getId(), ex.getMessage());
                 return;
+            } finally {
+                span.end();
             }
 
             event.setStatus("PUBLISHED");
@@ -83,6 +95,15 @@ public class KafkaTransferEventPublisher {
             outboxRepository.save(event);
             log.info("Published Outbox event [{}] to Kafka", event.getId());
         }
+    }
+
+    /** Child of the stored request span when the outbox row carries a valid traceparent, otherwise a new span. */
+    private Span startPublishSpan(OutboxJpaEntity event) {
+        Span.Builder builder = tracer.spanBuilder();
+        TraceParent.parse(event.getTraceParent(), tracer).ifPresent(builder::setParent);
+        return builder.name("outbox.publish")
+                .tag("outbox.event_type", String.valueOf(event.getEventType()))
+                .start();
     }
 
     long ackWaitMs() {

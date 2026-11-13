@@ -42,6 +42,10 @@ public class OutboxJpaEntity {
     @Column(name = "processed_at")
     private Instant processedAt;
 
+    /** W3C traceparent of the request that wrote this event; lets the publisher continue the same trace. */
+    @Column(name = "trace_parent", length = 55)
+    private String traceParent;
+
     public OutboxJpaEntity() {}
 
     public OutboxJpaEntity(UUID id, String aggregateType, String aggregateId, String eventType, String payload, String status) {
@@ -63,5 +67,7 @@ public class OutboxJpaEntity {
     public Instant getCreatedAt() { return createdAt; }
     public Instant getProcessedAt() { return processedAt; }
     public void setProcessedAt(Instant processedAt) { this.processedAt = processedAt; }
+    public String getTraceParent() { return traceParent; }
+    public void setTraceParent(String traceParent) { this.traceParent = traceParent; }
 }
 

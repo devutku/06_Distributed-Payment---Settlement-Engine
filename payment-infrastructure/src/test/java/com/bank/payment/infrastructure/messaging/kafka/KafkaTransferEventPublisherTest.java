@@ -35,7 +35,7 @@ class KafkaTransferEventPublisherTest {
 
     @BeforeEach
     void setUp() {
-        publisher = new KafkaTransferEventPublisher(outboxRepository, kafkaTemplate);
+        publisher = new KafkaTransferEventPublisher(outboxRepository, kafkaTemplate, io.micrometer.tracing.Tracer.NOOP);
     }
 
     private static OutboxJpaEntity pending(String aggregateId) {
@@ -88,7 +88,7 @@ class KafkaTransferEventPublisherTest {
                 .thenReturn(Map.of(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG, "10000"));
         when(kafkaTemplate.getProducerFactory()).thenReturn(factory);
 
-        KafkaTransferEventPublisher configured = new KafkaTransferEventPublisher(outboxRepository, kafkaTemplate);
+        KafkaTransferEventPublisher configured = new KafkaTransferEventPublisher(outboxRepository, kafkaTemplate, io.micrometer.tracing.Tracer.NOOP);
 
         assertThat(configured.ackWaitMs())
                 .isGreaterThan(10_000L)
