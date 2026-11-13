@@ -68,8 +68,11 @@ services:
       - MUTABIK_SECURITY_JWK_SET_URI=http://keycloak:8080/realms/mutabik/protocol/openid-connect/certs
       # Local-development default only; set a real secret in any shared environment.
       - PAYMENT_GATEWAY_WEBHOOK_SECRET=${PAYMENT_GATEWAY_WEBHOOK_SECRET:-whsec_fintech_production_secret_key_99}
+      - MANAGEMENT_OTLP_TRACING_ENDPOINT=http://jaeger:4318/v1/traces
     depends_on:
       keycloak:
+        condition: service_started
+      jaeger:
         condition: service_started
       postgres:
         condition: service_healthy
@@ -92,6 +95,14 @@ services:
       KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
     volumes:
       - ./keycloak:/opt/keycloak/data/import:ro
+
+  jaeger:
+    # Trace UI on :16686; the app exports spans via OTLP/HTTP on :4318
+    image: jaegertracing/all-in-one:1.62.0
+    container_name: mutabik-jaeger
+    ports:
+      - "16686:16686"
+      - "4318:4318"
 
   prometheus:
     image: prom/prometheus:v2.53.0
