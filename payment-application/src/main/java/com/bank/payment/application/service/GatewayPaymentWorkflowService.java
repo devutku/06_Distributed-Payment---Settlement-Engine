@@ -102,8 +102,12 @@ public class GatewayPaymentWorkflowService implements InitiateGatewayPaymentUseC
             throw new SecurityException("Webhook HMAC imza doğrulaması başarısız! Sahte webhook isteği engellendi.");
         }
 
-        // Load Transfer by external reference ID
-        Transfer transfer = saveTransferPort.findByExternalReferenceId(command.externalReferenceId())
+        // Load Transfer by external reference ID under a row lock.
+        // PSPs retry webhooks, so duplicates can arrive concurrently. Without the lock,
+        // two deliveries could both read AUTHORIZED and debit the customer twice.
+        // With it, the second delivery waits for the first to commit, then sees SETTLED
+        // and takes the idempotent replay branch below.
+        Transfer transfer = saveTransferPort.findByExternalReferenceIdForUpdate(command.externalReferenceId())
                 .orElseThrow(() -> new IllegalArgumentException("İşlem referansı bulunamadı: " + command.externalReferenceId()));
 
         if (transfer.getStatus() == TransferStatus.SETTLED || transfer.getStatus() == TransferStatus.CAPTURED) {
