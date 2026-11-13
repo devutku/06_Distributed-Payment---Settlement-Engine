@@ -300,11 +300,19 @@ Mutabık, Micrometer ve Prometheus kütüphaneleriyle üretim seviyesinde metrik
 
 Tarayıcı üzerinden `http://localhost:8080/index.html` adresine girildiğinde (Keycloak girişi ile; demo kullanıcıları için bkz. Kimlik Doğrulama) mülakatçıya tüm sistemi canlı olarak kanıtlayabileceğiniz modern bir arayüz açılır:
 
-1. **Canlı Hesap Kartları:** Giriş yapan kullanıcının yetkisi dahilindeki hesapların canlı bakiyeleri (müşteri yalnızca kendi hesaplarını, yönetici tümünü görür).
-2. **Idempotency Test Paneli:** Aynı Idempotency Key ile iki kez transfer yapıldığında ikinci isteğin önbellekten sıfır çift çekimle döndüğünün görsel kanıtı.
-3. **Eşzamanlılık Kanıtı (otomatik testler):** Canlı "stres simülatörü" ve bakiye sıfırlama uçları kaldırıldı (bkz. Kimlik Doğrulama). Eşzamanlılık garantileri artık otomatik testlerle kanıtlanır: `PaymentCoreIntegrationTest.testConcurrentDuplicateWebhooksDebitOnce` aynı webhook'un eşzamanlı tekrarlarında hesabın yalnızca bir kez borçlandırıldığını, `SecurityIntegrationTest` ise yetkisiz erişimlerin engellendiğini doğrular.
-4. **Çift Taraflı Ekstre Tablosu:** Seçilen hesabın tüm Borç/Alacak ve bakiye hareketleri.
-5. **Transactional Outbox & Kafka DLQ Monitörü:** DB'den Kafka'ya akan event'lerin canlı izlenmesi.
+1. **Role göre ekranlar:** Başlıkta kullanıcı, rol rozeti ve "Çıkış" bulunur. **Müşteri** (`alice`, `bob`, `charlie`) yalnızca kendi hesabını, ekstresini ve transferlerini görür; transfer ve ödeme formlarını kullanır. **Yönetici** (`admin`) tüm hesapları, tüm transferleri ve Outbox panelini görür; para hareket ettiren formlar ona gösterilmez (sunucu da 403 döner).
+2. **Canlı Hesap Kartları:** Yetki dahilindeki hesapların canlı bakiyeleri, maskeli IBAN ile (`TR33 •••• 0001`).
+3. **Onaylı Para Transferi:** Alıcı, maskeli bir alıcı rehberinden seçilir; tutar Türkçe biçimde girilir (`1.250,50`). Para, ancak Gönderen / Alıcı / Tutar özetini gösteren onay penceresinde "Onayla ve gönder" seçildikten sonra hareket eder. Geçersiz tutarda hata, alanın hemen altında gösterilir.
+4. **Idempotency Demosu ("Geliştirici detayları"):** Normal transfer her gönderimde yeni bir `Idempotency-Key` üretir. Kapalı "Geliştirici detayları" bölümündeki **"Aynı anahtarla tekrar gönder"** butonu son isteği aynı anahtarla yeniden yollar; yanıt önbellekten döner ve hesap ikinci kez borçlandırılmaz.
+5. **Ödeme Geçidi:** Müşteri ödemeyi başlatır ve `AUTHORIZED` durumunda "ödeme sağlayıcısının onayı bekleniyor" olarak bekler. Tahsilat yalnızca sağlayıcının HMAC imzalı webhook'u ile tamamlanır (bkz. imzalı webhook örneği).
+6. **Çift Taraflı Ekstre Tablosu:** Seçilen hesabın tüm Borç/Alacak ve bakiye hareketleri.
+7. **Transactional Outbox & Kafka Monitörü (yönetici):** DB'den Kafka'ya akan event'lerin canlı izlenmesi.
+8. **Eşzamanlılık Kanıtı (otomatik testler):** Canlı "stres simülatörü" ve bakiye sıfırlama uçları kaldırıldı. Eşzamanlılık garantileri otomatik testlerle kanıtlanır:
+   - `ConcurrentTransferHttpTest`: aynı hesaptan 20 eşzamanlı transferin hepsinin başarılı olduğunu ve bakiyenin tam olarak düştüğünü doğrular.
+   - `PaymentCoreIntegrationTest.testConcurrentDuplicateWebhooksDebitOnce`: aynı webhook'un eşzamanlı tekrarlarında hesabın yalnızca bir kez borçlandırıldığını doğrular.
+   - `SecurityIntegrationTest` ve `AccessControlHttpTest`: yetkisiz erişimlerin engellendiğini doğrular.
+
+**Erişilebilirlik ve mobil:** Form alanları etiketlerine bağlıdır; işlem sonuçları ekran okuyuculara `aria-live` ile duyurulur. Tüm metinler en az 12px ve WCAG AA kontrastındadır. İşletim sisteminde "hareketi azalt" seçiliyse animasyonlar kapanır. Dokunmatik ekranlarda her kontrol en az 44×44px'tir ve sayfa 375px genişlikte yatay kaydırma olmadan çalışır. Başlıktaki "API bağlı" rozeti sabit değildir; son API yanıtına göre değişir.
 
 ---
 
