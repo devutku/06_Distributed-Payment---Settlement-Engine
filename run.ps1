@@ -1,4 +1,4 @@
-# AegisPay Engine Başlatıcı Scripti
+﻿# Mutabık Engine Başlatıcı Scripti
 param (
     [switch]$Docker,
     [switch]$Local,
@@ -8,7 +8,7 @@ param (
 $ErrorActionPreference = "Stop"
 
 Write-Host "==========================================================" -ForegroundColor Cyan
-Write-Host "  AegisPay | Distributed Payment & Settlement Engine     " -ForegroundColor Green
+Write-Host "  Mutabık | Distributed Payment & Settlement Engine     " -ForegroundColor Green
 Write-Host "  Clean Architecture (Hexagonal) &bull; Spring Boot 3.3  " -ForegroundColor Cyan
 Write-Host "==========================================================" -ForegroundColor Cyan
 
