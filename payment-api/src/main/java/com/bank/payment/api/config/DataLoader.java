@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Component
@@ -24,6 +25,22 @@ public class DataLoader implements CommandLineRunner {
         this.accountRepository = accountRepository;
     }
 
+    private static final Map<UUID, String> SEED_OWNERS = Map.of(
+            UUID.fromString("11111111-1111-1111-1111-111111111111"), "CUST-ALICE",
+            UUID.fromString("22222222-2222-2222-2222-222222222222"), "CUST-BOB",
+            UUID.fromString("33333333-3333-3333-3333-333333333333"), "CUST-CHARLIE");
+
+    /** Demo backfill: idempotent, only fills owners that are still null. */
+    private void backfillOwners() {
+        SEED_OWNERS.forEach((id, owner) -> accountRepository.findById(id).ifPresent(account -> {
+            if (account.getOwnerCustomerId() == null) {
+                account.setOwnerCustomerId(owner);
+                accountRepository.save(account);
+                log.info("Backfilled owner {} on seeded account {}", owner, id);
+            }
+        }));
+    }
+
     @Override
     public void run(String... args) {
         if (accountRepository.count() == 0) {
@@ -35,7 +52,8 @@ public class DataLoader implements CommandLineRunner {
                     new BigDecimal("10000.00"),
                     Currency.TRY,
                     AccountStatus.ACTIVE,
-                    0L
+                    0L,
+                    "CUST-ALICE"
             );
 
             AccountJpaEntity bob = new AccountJpaEntity(
@@ -44,7 +62,8 @@ public class DataLoader implements CommandLineRunner {
                     new BigDecimal("5000.00"),
                     Currency.TRY,
                     AccountStatus.ACTIVE,
-                    0L
+                    0L,
+                    "CUST-BOB"
             );
 
             AccountJpaEntity charlie = new AccountJpaEntity(
@@ -53,7 +72,8 @@ public class DataLoader implements CommandLineRunner {
                     new BigDecimal("250.00"), // Low balance for race-condition stress tests
                     Currency.TRY,
                     AccountStatus.ACTIVE,
-                    0L
+                    0L,
+                    "CUST-CHARLIE"
             );
 
             AccountJpaEntity clearing = new AccountJpaEntity(
@@ -62,11 +82,14 @@ public class DataLoader implements CommandLineRunner {
                     new BigDecimal("1000000.00"),
                     Currency.TRY,
                     AccountStatus.ACTIVE,
-                    0L
+                    0L,
+                    null
             );
 
             accountRepository.saveAll(List.of(alice, bob, charlie, clearing));
             log.info("Successfully seeded 4 initial accounts.");
+        } else {
+            backfillOwners();
         }
     }
 }

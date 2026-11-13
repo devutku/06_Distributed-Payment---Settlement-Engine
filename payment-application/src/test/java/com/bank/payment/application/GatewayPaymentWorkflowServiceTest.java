@@ -64,8 +64,8 @@ class GatewayPaymentWorkflowServiceTest {
     @Test
     @DisplayName("Webhook loads the transfer under a row lock, then captures and debits once")
     void shouldCaptureAuthorizedTransferUsingRowLock() {
-        Account customer = new Account(CUSTOMER_ID, "CUST", Money.of(1000.00, Currency.TRY), AccountStatus.ACTIVE, 0L);
-        Account merchant = new Account(MERCHANT_ID, "MERCH", Money.of(0.00, Currency.TRY), AccountStatus.ACTIVE, 0L);
+        Account customer = new Account(CUSTOMER_ID, "CUST", Money.of(1000.00, Currency.TRY), AccountStatus.ACTIVE, 0L, "CUST-1");
+        Account merchant = new Account(MERCHANT_ID, "MERCH", Money.of(0.00, Currency.TRY), AccountStatus.ACTIVE, 0L, null);
         when(saveTransferPort.findByExternalReferenceIdForUpdate(EXTERNAL_REF))
                 .thenReturn(Optional.of(transferWithStatus(TransferStatus.AUTHORIZED)));
         when(loadAccountPort.loadAccountWithLock(CUSTOMER_ID)).thenReturn(Optional.of(customer));

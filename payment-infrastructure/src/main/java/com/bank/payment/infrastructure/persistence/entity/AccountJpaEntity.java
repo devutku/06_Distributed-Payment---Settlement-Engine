@@ -35,6 +35,9 @@ public class AccountJpaEntity {
     @Column(name = "status", nullable = false, length = 20)
     private AccountStatus status;
 
+    @Column(name = "owner_customer_id", length = 64)
+    private String ownerCustomerId;
+
     @Version
     @Column(name = "version")
     private Long version;
@@ -49,13 +52,14 @@ public class AccountJpaEntity {
 
     public AccountJpaEntity() {}
 
-    public AccountJpaEntity(UUID id, String customerNumber, BigDecimal balance, Currency currency, AccountStatus status, Long version) {
+    public AccountJpaEntity(UUID id, String customerNumber, BigDecimal balance, Currency currency, AccountStatus status, Long version, String ownerCustomerId) {
         this.id = id;
         this.customerNumber = customerNumber;
         this.balance = balance;
         this.currency = currency;
         this.status = status;
         this.version = version;
+        this.ownerCustomerId = ownerCustomerId;
     }
 
     public Account toDomain() {
@@ -64,7 +68,8 @@ public class AccountJpaEntity {
                 this.customerNumber,
                 Money.of(this.balance, this.currency),
                 this.status,
-                this.version
+                this.version,
+                this.ownerCustomerId
         );
     }
 
@@ -75,7 +80,8 @@ public class AccountJpaEntity {
                 account.getBalance().amount(),
                 account.getBalance().currency(),
                 account.getStatus(),
-                account.getVersion()
+                account.getVersion(),
+                account.getOwnerCustomerId()
         );
     }
 
@@ -91,6 +97,8 @@ public class AccountJpaEntity {
     public void setStatus(AccountStatus status) { this.status = status; }
     public Long getVersion() { return version; }
     public void setVersion(Long version) { this.version = version; }
+    public String getOwnerCustomerId() { return ownerCustomerId; }
+    public void setOwnerCustomerId(String ownerCustomerId) { this.ownerCustomerId = ownerCustomerId; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
 }
