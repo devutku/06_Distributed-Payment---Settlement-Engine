@@ -1,6 +1,11 @@
 package com.bank.payment.api;
 
+import com.bank.payment.api.security.KeycloakRoleConverter;
 import com.bank.payment.api.security.SecurityConfig;
+import com.bank.payment.infrastructure.persistence.repository.SpringDataAccountRepository;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import com.bank.payment.infrastructure.gateway.MockPaymentGatewayAdapter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -70,6 +75,8 @@ class SecurityIntegrationTest {
     private ObjectMapper objectMapper;
     @Autowired
     private MockPaymentGatewayAdapter gatewayAdapter;
+    @Autowired
+    private SpringDataAccountRepository accountRepository;
 
     private static RequestPostProcessor customer(String customerId) {
         return jwt().jwt(j -> j.claim("customer_id", customerId))
@@ -266,5 +273,81 @@ class SecurityIntegrationTest {
                         .content(transferBody(ALICE_ACC, BOB_ACC)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.idempotentReplay").value(true));
+    }
+
+    private static Jwt.Builder jwtBuilder() {
+        Instant now = Instant.now();
+        return Jwt.withTokenValue("t").header("alg", "RS256").subject("u")
+                .issuedAt(now).expiresAt(now.plusSeconds(60));
+    }
+
+    private static List<String> authorities(Jwt jwt) {
+        return new KeycloakRoleConverter().convert(jwt).stream().map(GrantedAuthority::getAuthority).toList();
+    }
+
+    @Test
+    void keycloakRolesMapOnlyKnownRealmRoles() {
+        assertThat(authorities(jwtBuilder().claim("realm_access", Map.of("roles", List.of("CUSTOMER", "offline_access"))).build()))
+                .containsExactly("ROLE_CUSTOMER");
+        assertThat(authorities(jwtBuilder().claim("realm_access", Map.of("roles", List.of("ADMIN"))).build()))
+                .containsExactly("ROLE_ADMIN");
+    }
+
+    @Test
+    void scopeClaimAndMalformedRealmAccessGrantNothing() {
+        assertThat(authorities(jwtBuilder().claim("scope", "ADMIN").build())).isEmpty();
+        assertThat(authorities(jwtBuilder().claim("realm_access", "ADMIN").build())).isEmpty();
+        assertThat(authorities(jwtBuilder().claim("realm_access", Map.of("roles", "ADMIN")).build())).isEmpty();
+        assertThat(authorities(jwtBuilder().claim("realm_access", Map.of("roles", List.of(1, "x"))).build())).isEmpty();
+    }
+
+    @Test
+    void securityConfigConverterUsesKeycloakRoles() {
+        JwtAuthenticationConverter converter = SecurityConfig.jwtAuthenticationConverter();
+        Authentication auth = converter.convert(jwtBuilder()
+                .claim("realm_access", Map.of("roles", List.of("ADMIN", "offline_access")))
+                .claim("scope", "CUSTOMER").build());
+        assertThat(auth.getAuthorities()).extracting(GrantedAuthority::getAuthority).containsExactly("ROLE_ADMIN");
+    }
+
+    @Test
+    void expiredTokenFailsValidation() {
+        OAuth2TokenValidator<Jwt> validator = SecurityConfig.tokenValidator(
+                "http://localhost:8180/realms/mutabik", "mutabik-api");
+        Instant now = Instant.now();
+        Jwt expired = Jwt.withTokenValue("t").header("alg", "RS256")
+                .issuer("http://localhost:8180/realms/mutabik").audience(List.of("mutabik-api"))
+                .issuedAt(now.minusSeconds(7200)).expiresAt(now.minusSeconds(3600)).build();
+        assertThat(validator.validate(expired).hasErrors()).isTrue();
+    }
+
+    @Test
+    void webhookWithInvalidSignatureIsRejectedAndPaymentStaysUnsettled() throws Exception {
+        String payBody = objectMapper.writeValueAsString(Map.of(
+                "customerAccountId", ALICE_ACC, "merchantAccountId", BOB_ACC,
+                "amount", "13.00", "currency", "TRY"));
+        MvcResult pay = mockMvc.perform(post("/api/v1/gateway/pay").with(alice())
+                        .header("Idempotency-Key", "PSP-" + UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payBody))
+                .andExpect(status().isOk())
+                .andReturn();
+        String ref = (String) objectMapper.readValue(pay.getResponse().getContentAsString(), Map.class)
+                .get("externalReferenceId");
+        java.math.BigDecimal before = accountRepository.findById(UUID.fromString(ALICE_ACC)).orElseThrow().getBalance();
+
+        String payload = objectMapper.writeValueAsString(Map.of(
+                "eventType", "payment_intent.succeeded", "externalReferenceId", ref,
+                "amount", "13.00", "currency", "TRY"));
+        MvcResult result = mockMvc.perform(post("/api/v1/webhooks/gateway")
+                        .header("X-Signature", "deadbeef")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andReturn();
+
+        assertThat(result.getResponse().getStatus()).isNotEqualTo(200);
+        assertThat(result.getResponse().getContentAsString()).doesNotContain("SETTLED");
+        assertThat(accountRepository.findById(UUID.fromString(ALICE_ACC)).orElseThrow().getBalance())
+                .isEqualByComparingTo(before);
     }
 }
