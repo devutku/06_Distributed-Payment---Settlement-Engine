@@ -23,7 +23,8 @@ RUN apk add --no-cache maven && \
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup \n    && mkdir -p /app/dumps && chown appuser:appgroup /app/dumps
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup \
+    && mkdir -p /app/dumps && chown appuser:appgroup /app/dumps
 USER appuser
 
 COPY --from=builder /workspace/payment-api/target/payment-api-*.jar app.jar

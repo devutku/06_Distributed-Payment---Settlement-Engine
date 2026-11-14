@@ -47,6 +47,20 @@ class PipelineMetricsTest {
     }
 
     @Test
+    @DisplayName("Every documented outcome series exists at 0 from startup, so rate()/increase() alerts see the first burst")
+    void outcomeCountersExistAtZero() {
+        java.util.Map<String, List<String>> outcomes = java.util.Map.of(
+                "mutabik.transfers", List.of("success", "replay", "insufficient_funds", "not_found", "rejected", "error"),
+                "mutabik.gateway.payments", List.of("authorized", "not_found", "rejected", "error"),
+                "mutabik.webhooks", List.of("captured", "replay", "invalid_signature", "insufficient_funds", "rejected", "error"));
+        outcomes.forEach((name, values) -> values.forEach(outcome -> {
+            var c = registry.find(name).tag("outcome", outcome).counter();
+            assertThat(c).as(name + "{outcome=" + outcome + "}").isNotNull();
+            assertThat(c.count()).isZero();
+        }));
+    }
+
+    @Test
     @DisplayName("Exceptions map to outcomes; business rejections are never 'error'")
     void outcomeMapping() {
         assertThat(PaymentMetrics.outcomeOf(new InsufficientFundsException("x"))).isEqualTo("insufficient_funds");
