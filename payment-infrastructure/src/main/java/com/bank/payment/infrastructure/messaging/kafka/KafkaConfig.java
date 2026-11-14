@@ -65,6 +65,9 @@ public class KafkaConfig {
         ConcurrentKafkaListenerContainerFactory<String, String> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactory);
         factory.setCommonErrorHandler(errorHandler);
+        // This factory is defined here, so spring.kafka.listener.observation-enabled does not reach it:
+        // enable observation explicitly so consumers continue the producer's trace (traceparent header).
+        factory.getContainerProperties().setObservationEnabled(true);
         return factory;
     }
 }

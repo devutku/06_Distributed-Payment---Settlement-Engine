@@ -287,12 +287,81 @@ Bakiyeleri başlangıca döndürmek için veritabanı yeniden oluşturulur: `doc
 
 ---
 
-## 📊 İzlenebilirlik (Observability & Metrics)
+## 📊 Gözlemlenebilirlik (Tracing, Metrikler, Alarmlar, Yük Testi, Bellek Analizi)
 
-Mutabık, Micrometer ve Prometheus kütüphaneleriyle üretim seviyesinde metrik üretir:
-- **`payment.transfer.duration`:** Transfer işlemlerinin süre dağılımı (p50, p90, p95, p99 gecikme yüzdelikleri).
-- **`payment.transfers.total`:** `status=SUCCESS` ve `status=FAILED` etiketleriyle başarılı/başarısız işlem sayaçları.
-- **Grafana Dashboard:** Önceden yapılandırılmış dashboard ile TPS, gecikmeler ve JVM heap bellek kullanımı canlı grafiklerle sunulur.
+### Dağıtık İzleme (OpenTelemetry → Jaeger)
+Micrometer Tracing ve OpenTelemetry köprüsü her isteği izler ve OTLP ile **Jaeger**'a gönderir (arayüz: `http://localhost:16686`, servis: `distributed-payment-core`).
+Bir transferin tüm yolculuğu **tek bir iz** olarak görünür:
+
+```
+http post /api/v1/transfers
+├── security filterchain / authenticate bearertoken
+├── connection → query / result-set            (JDBC: kilitler, bakiye, ledger, outbox INSERT)
+└── outbox.publish                              (zamanlanmış publisher, aynı izin devamı)
+    └── transfer-events send                    (Kafka producer, traceparent header ile)
+        └── transfer-events receive             (Kafka consumer) → query (processed_events)
+```
+
+Outbox normalde izi koparır: event'i isteği karşılayan thread değil, zamanlanmış görev yayımlar. Bunu önlemek için outbox satırına
+isteğin W3C `traceparent` değeri yazılır (`outbox_events.trace_parent`) ve publisher Kafka'ya gönderirken bu izi sürdürür.
+Her log satırında da `traceId`/`spanId` bulunur: `INFO [distributed-payment-core,<traceId>,<spanId>]`.
+
+### İş Metrikleri (Prometheus, actuator `:8081`)
+| Metrik | Açıklama |
+| :--- | :--- |
+| `mutabik_transfers_total{outcome}` | `success`, `replay`, `insufficient_funds`, `not_found`, `rejected`, `error` |
+| `mutabik_gateway_payments_total{outcome}` | `authorized`, `not_found`, `rejected`, `error` |
+| `mutabik_webhooks_total{outcome}` | `captured`, `replay`, `invalid_signature`, `rejected`, `error` |
+| `mutabik_outbox_pending` | Kafka'yı bekleyen outbox event sayısı (gauge) |
+| `mutabik_outbox_publish_failures_total` | Kafka'nın onaylamadığı yayımlama denemeleri |
+| `mutabik_kafka_dlq_messages_total` | Dead-letter kuyruğuna düşen mesajlar |
+| `mutabik_kafka_duplicates_skipped_total` | İdempotent tüketicinin atladığı tekrar teslimatlar |
+| `payment_transfer_duration_seconds` | Transfer süresi histogramı (p50/p90/p95/p99) |
+
+İş retleri (yetersiz bakiye, bulunamadı) kendi `outcome` değerlerini alır ve **hata sayılmaz**; böylece hata oranı alarmı normal müşteri davranışıyla tetiklenmez.
+Etiketlerde hesap/müşteri kimliği veya tutar yoktur. Grafana dashboard'u (`http://localhost:3000`) bu metriklerin panellerini içerir.
+
+### Alarmlar (`docker/prometheus/alerts.yml`, Prometheus arayüzü: `http://localhost:9090/alerts`)
+| Alarm | Koşul |
+| :--- | :--- |
+| `OutboxBacklogHigh` | Bekleyen outbox event > 100, 5 dk boyunca |
+| `OutboxPublishFailing` | Son 5 dk'da Kafka yayımlama hatası |
+| `DeadLetterMessages` | Son 10 dk'da DLQ'ya mesaj düştü |
+| `TransferErrorRateHigh` | `outcome="error"` oranı > %5, 5 dk boyunca |
+| `InvalidWebhookSignatureSpike` | Son 5 dk'da > 10 geçersiz imzalı webhook |
+| `TransferLatencyP95High` | Transfer p95 > 500 ms, 5 dk boyunca |
+
+### Yük Testi (k6)
+```powershell
+.\tools\loadtest.ps1    # k6 Docker ile çalışır; uygulama ve Keycloak ayakta olmalı
+```
+Senaryo (`load/k6/transfers.js`): 20 sanal kullanıcıya kadar artan, alice ↔ bob arasında iki yönlü 0,01 TL'lik transferler + bakiye okumaları.
+Eşikler: `p(95) < 500 ms` ve hata oranı `< %1`. Token'lar yalnızca yerel yük testi için tanımlı, gizli anahtarlı `mutabik-loadtest`
+client'ından alınır (şifreyle doğrudan token; konsol client'ı PKCE-only kalır). **Bu client'ı yerel ortam dışında asla etkinleştirmeyin.**
+
+İlk ölçüm (yerel makine, Docker Desktop, 105 sn):
+
+| Ölçüm | Sonuç |
+| :--- | :--- |
+| İstek / iterasyon | 5.040 istek, 2.519 transfer (~47 istek/sn) |
+| Hata oranı | %0,00 ✅ |
+| Gecikme (tüm istekler) | ort. 229 ms · medyan 56 ms · p90 672 ms · **p95 858 ms** ❌ |
+| Bakiye korunumu | alice + bob toplamı test öncesi ve sonrası aynı (14.980,00) ✅ |
+
+p95 eşiği bilinçli olarak gevşetilmedi: senaryo en kötü durum olan **"sıcak hesap"** çekişmesini ölçer. Tüm kullanıcılar aynı iki hesap
+arasında para gönderir; her transfer bu iki satırı `SELECT ... FOR UPDATE` ile kilitlediği için transferler sırayla işlenir.
+Gerçek trafikte işlemler çok sayıda hesaba dağılır. Sıcak hesaplar için bilinen çözümler: hesabı alt hesaplara bölmek (sharded balances)
+veya bakiyeyi senkron kilit yerine sıralı bir ledger akışıyla güncellemek.
+
+### Bellek Analizi (Eclipse MAT)
+- JVM, `OutOfMemoryError` durumunda otomatik heap dump alır (`-XX:+HeapDumpOnOutOfMemoryError`): Docker'da `/app/dumps` → `./dumps`, `run.ps1` ile `./dumps`.
+- Çalışan uygulamadan elle dump: `.\tools\heapdump.ps1` (8080'i dinleyen Java sürecinde `jcmd GC.heap_dump`; Docker imajı yalnızca JRE içerdiği için container'da otomatik dump kullanılır).
+- Rapor: [Eclipse MAT](https://eclipse.dev/mat/) kurup `MAT_HOME`'u ayarlayın, ardından `.\tools\mat-report.ps1 -Dump .\dumps\heap-<zaman>.hprof`.
+  Dump'ın yanında `_Leak_Suspects.zip` ve `_System_Overview.zip` HTML raporları oluşur.
+- Yorumlama: **Leak Suspects** birikme noktasını gösterir; **Dominator Tree**'de *retained heap*'e göre sıralayıp en büyük tutucuyu,
+  **Path to GC Roots** ile onu neyin canlı tuttuğunu bulun.
+- Bilinen aday: `RedisIdempotencyAdapter.localMemoryCache`, Redis çalışırken bile her yanıtı süresiz bir `ConcurrentHashMap`'e yazar ve
+  sınırsız büyür. Uzun bir yük testinden sonra alınan dump'ta Dominator Tree'nin üst sıralarında görünmesi beklenir.
 
 ---
 
@@ -325,8 +394,9 @@ docker compose -f docker/docker-compose.yml up -d --build
 > - **PostgreSQL 16** (`localhost:5433`),
 > - **Redis 7** (`localhost:6379`),
 > - **Apache Kafka** (`localhost:9092`),
-> - **Prometheus** (`localhost:9090`),
-> - **Grafana** (`localhost:3000`)
+> - **Prometheus** (`localhost:9090`, alarmlar `/alerts`),
+> - **Grafana** (`localhost:3000`),
+> - **Jaeger** (`localhost:16686`, dağıtık izleme)
 > hiçbir yerel bağımlılık (Java, Maven vb.) gerektirmeden tek seferde hazır hale gelir!
 
 ### 2. Alternatif: Yerel Geliştirici Modunda Çalıştırma (PowerShell)
