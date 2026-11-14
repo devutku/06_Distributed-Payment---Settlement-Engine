@@ -32,21 +32,40 @@ public class PaymentMetrics {
         this.duplicatesSkipped = Counter.builder("mutabik.kafka.duplicates.skipped")
                 .description("Redelivered events skipped by the idempotent consumer")
                 .register(registry);
+
+        // Pre-register every outcome at 0: Prometheus rate()/increase() ignore a series' first sample,
+        // so a counter created on first use would hide the first burst after a restart from the alerts.
+        TRANSFER_OUTCOMES.forEach(o -> counter(TRANSFERS, TRANSFERS_DESC, o));
+        GATEWAY_OUTCOMES.forEach(o -> counter(GATEWAY, GATEWAY_DESC, o));
+        WEBHOOK_OUTCOMES.forEach(o -> counter(WEBHOOKS, WEBHOOKS_DESC, o));
     }
+
+    private static final String TRANSFERS = "mutabik.transfers";
+    private static final String TRANSFERS_DESC = "Money transfers by outcome";
+    private static final String GATEWAY = "mutabik.gateway.payments";
+    private static final String GATEWAY_DESC = "Gateway payment authorizations by outcome";
+    private static final String WEBHOOKS = "mutabik.webhooks";
+    private static final String WEBHOOKS_DESC = "PSP webhooks by outcome";
+    private static final java.util.List<String> TRANSFER_OUTCOMES =
+            java.util.List.of("success", "replay", "insufficient_funds", "not_found", "rejected", "error");
+    private static final java.util.List<String> GATEWAY_OUTCOMES =
+            java.util.List.of("authorized", "not_found", "rejected", "error");
+    private static final java.util.List<String> WEBHOOK_OUTCOMES =
+            java.util.List.of("captured", "replay", "invalid_signature", "insufficient_funds", "rejected", "error");
 
     /** outcome: success | replay | insufficient_funds | not_found | rejected | error */
     public void transfer(String outcome) {
-        outcome("mutabik.transfers", "Money transfers by outcome", outcome);
+        counter(TRANSFERS, TRANSFERS_DESC, outcome).increment();
     }
 
     /** outcome: authorized | not_found | rejected | error */
     public void gatewayPayment(String outcome) {
-        outcome("mutabik.gateway.payments", "Gateway payment authorizations by outcome", outcome);
+        counter(GATEWAY, GATEWAY_DESC, outcome).increment();
     }
 
-    /** outcome: captured | replay | invalid_signature | not_found | rejected | error */
+    /** outcome: captured | replay | invalid_signature | insufficient_funds | rejected | error */
     public void webhook(String outcome) {
-        outcome("mutabik.webhooks", "PSP webhooks by outcome", outcome);
+        counter(WEBHOOKS, WEBHOOKS_DESC, outcome).increment();
     }
 
     public void outboxPublishFailure() { outboxPublishFailures.increment(); }
@@ -67,7 +86,7 @@ public class PaymentMetrics {
         return "error";
     }
 
-    private void outcome(String name, String description, String outcome) {
-        Counter.builder(name).description(description).tag("outcome", outcome).register(registry).increment();
+    private Counter counter(String name, String description, String outcome) {
+        return Counter.builder(name).description(description).tag("outcome", outcome).register(registry);
     }
 }
