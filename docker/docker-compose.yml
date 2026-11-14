@@ -69,6 +69,9 @@ services:
       # Local-development default only; set a real secret in any shared environment.
       - PAYMENT_GATEWAY_WEBHOOK_SECRET=${PAYMENT_GATEWAY_WEBHOOK_SECRET:-whsec_fintech_production_secret_key_99}
       - MANAGEMENT_OTLP_TRACING_ENDPOINT=http://jaeger:4318/v1/traces
+    volumes:
+      # Heap dumps written on OutOfMemoryError (analyze with tools/mat-report.ps1)
+      - ../dumps:/app/dumps
     depends_on:
       keycloak:
         condition: service_started

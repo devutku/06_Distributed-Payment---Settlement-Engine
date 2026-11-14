@@ -42,13 +42,18 @@ if ($Test) {
     exit 0
 }
 
+# On OutOfMemoryError the JVM writes a heap dump to .\dumps for Eclipse MAT (see tools\mat-report.ps1)
+$dumpDir = Join-Path $PSScriptRoot 'dumps'
+New-Item -ItemType Directory -Force $dumpDir | Out-Null
+$heapDumpArgs = "-XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=$dumpDir"
+
 if ($Local) {
     Write-Host "[DOCKER] Giriş için yalnızca Keycloak başlatılıyor (http://localhost:8180)..." -ForegroundColor Magenta
     docker compose -f docker/docker-compose.yml up -d keycloak
     Write-Host "[RUN] In-memory H2 profili ile başlatılıyor (Offline mod)..." -ForegroundColor Yellow
-    & $mavenCmd -pl payment-api spring-boot:run -Dspring-boot.run.profiles=local
+    & $mavenCmd -pl payment-api spring-boot:run -Dspring-boot.run.profiles=local "-Dspring-boot.run.jvmArguments=$heapDumpArgs"
 } else {
     Write-Host "[RUN] Standart profille başlatılıyor (PostgreSQL + Redis + Kafka)..." -ForegroundColor Green
-    & $mavenCmd -pl payment-api spring-boot:run
+    & $mavenCmd -pl payment-api spring-boot:run "-Dspring-boot.run.jvmArguments=$heapDumpArgs"
 }
 
