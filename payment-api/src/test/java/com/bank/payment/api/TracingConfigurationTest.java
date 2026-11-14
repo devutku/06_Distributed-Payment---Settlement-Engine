@@ -27,6 +27,15 @@ class TracingConfigurationTest {
     @Value("${spring.kafka.listener.observation-enabled:false}")
     private boolean kafkaListenerObservation;
 
+    @Autowired
+    private org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory<String, String> kafkaListenerContainerFactory;
+
+    @Test
+    @DisplayName("The custom listener container factory has observation on, so consumers continue the producer's trace")
+    void listenerFactoryObservesConsumers() {
+        assertThat(kafkaListenerContainerFactory.getContainerProperties().isObservationEnabled()).isTrue();
+    }
+
     @Test
     @DisplayName("An OpenTelemetry-backed tracer is wired, Kafka observation is on, and tests sample nothing")
     void tracingIsWired() {
