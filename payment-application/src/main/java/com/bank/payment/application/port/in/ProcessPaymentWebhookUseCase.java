@@ -8,6 +8,9 @@ import java.util.UUID;
 
 public interface ProcessPaymentWebhookUseCase {
 
+    /** Message returned when the transfer was already captured; lets callers tell a replay from a capture. */
+    String REPLAY_MESSAGE = "Webhook daha önce işlenmiş (Idempotent Webhook Replay)";
+
     record WebhookCommand(
             String payload,
             String signatureHeader,

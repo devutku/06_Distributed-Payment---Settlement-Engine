@@ -1,5 +1,6 @@
 package com.bank.payment.infrastructure.messaging.kafka;
 
+import com.bank.payment.infrastructure.observability.PaymentMetrics;
 import com.bank.payment.infrastructure.persistence.entity.ProcessedEventJpaEntity;
 import com.bank.payment.infrastructure.persistence.repository.SpringDataProcessedEventRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -27,11 +28,14 @@ public class KafkaTransferEventListener {
 
     private final SpringDataProcessedEventRepository processedEventRepository;
     private final ObjectMapper objectMapper;
+    private final PaymentMetrics metrics;
 
     public KafkaTransferEventListener(SpringDataProcessedEventRepository processedEventRepository,
-                                      ObjectMapper objectMapper) {
+                                      ObjectMapper objectMapper,
+                                      PaymentMetrics metrics) {
         this.processedEventRepository = processedEventRepository;
         this.objectMapper = objectMapper;
+        this.metrics = metrics;
     }
 
     /**
@@ -50,6 +54,7 @@ public class KafkaTransferEventListener {
         String eventId = extractEventId(record.value());
         if (processedEventRepository.existsById(eventId)) {
             log.info("Duplicate transfer event [{}] at offset {} skipped (already processed)", eventId, record.offset());
+            metrics.duplicateSkipped();
             return;
         }
         // Primary key on event_id is the final guard if two consumers race on the same event
@@ -86,6 +91,7 @@ public class KafkaTransferEventListener {
                 record.key(), record.value());
 
         deadLetterEvents.add("DLQ [Key: " + record.key() + "] -> " + record.value());
+        metrics.deadLetter();
     }
 
     public List<String> getProcessedEvents() {

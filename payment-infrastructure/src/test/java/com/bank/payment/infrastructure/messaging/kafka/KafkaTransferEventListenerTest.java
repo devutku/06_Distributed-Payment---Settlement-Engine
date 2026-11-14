@@ -30,7 +30,7 @@ class KafkaTransferEventListenerTest {
 
     @BeforeEach
     void setUp() {
-        listener = new KafkaTransferEventListener(processedEventRepository, new ObjectMapper());
+        listener = new KafkaTransferEventListener(processedEventRepository, new ObjectMapper(), new com.bank.payment.infrastructure.observability.PaymentMetrics(new io.micrometer.core.instrument.simple.SimpleMeterRegistry()));
         lenient().when(processedEventRepository.existsById(anyString())).thenAnswer(inv -> stored.contains(inv.getArgument(0)));
         lenient().when(processedEventRepository.saveAndFlush(any())).thenAnswer(inv -> {
             stored.add(((ProcessedEventJpaEntity) inv.getArgument(0)).getEventId());

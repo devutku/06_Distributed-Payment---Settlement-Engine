@@ -2,6 +2,7 @@ package com.bank.payment.api.controller;
 
 import com.bank.payment.api.filter.IdempotencyFilter;
 import com.bank.payment.api.security.RequesterResolver;
+import com.bank.payment.infrastructure.observability.PaymentMetrics;
 import com.bank.payment.application.port.in.InitiateGatewayPaymentUseCase;
 import com.bank.payment.domain.model.account.AccountId;
 import com.bank.payment.domain.model.shared.Currency;
@@ -25,11 +26,14 @@ public class GatewayPaymentController {
     private final InitiateGatewayPaymentUseCase initiateGatewayPaymentUseCase;
 
     private final RequesterResolver requesterResolver;
+    private final PaymentMetrics metrics;
 
     public GatewayPaymentController(InitiateGatewayPaymentUseCase initiateGatewayPaymentUseCase,
-                                    RequesterResolver requesterResolver) {
+                                    RequesterResolver requesterResolver,
+                                    PaymentMetrics metrics) {
         this.initiateGatewayPaymentUseCase = initiateGatewayPaymentUseCase;
         this.requesterResolver = requesterResolver;
+        this.metrics = metrics;
     }
 
     public record GatewayPayRequest(
@@ -66,8 +70,14 @@ public class GatewayPaymentController {
                 requesterResolver.resolve(auth)
         );
 
-        InitiateGatewayPaymentUseCase.GatewayPaymentResponse response = initiateGatewayPaymentUseCase.initiatePayment(command);
-        return ResponseEntity.ok(response);
+        try {
+            InitiateGatewayPaymentUseCase.GatewayPaymentResponse response = initiateGatewayPaymentUseCase.initiatePayment(command);
+            metrics.gatewayPayment("authorized");
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException ex) {
+            metrics.gatewayPayment(PaymentMetrics.outcomeOf(ex));
+            throw ex;
+        }
     }
 }
 

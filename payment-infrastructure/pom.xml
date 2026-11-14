@@ -70,6 +70,12 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- Business metrics (registry provided by Spring Boot Actuator in payment-api) -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-core</artifactId>
+        </dependency>
+
         <!-- Tracing API only (the OTel bridge is wired in payment-api) -->
         <dependency>
             <groupId>io.micrometer</groupId>

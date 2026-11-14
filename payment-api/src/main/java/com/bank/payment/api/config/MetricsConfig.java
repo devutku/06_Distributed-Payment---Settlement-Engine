@@ -1,6 +1,5 @@
 package com.bank.payment.api.config;
 
-import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import org.springframework.context.annotation.Bean;
@@ -22,20 +21,6 @@ public class MetricsConfig {
                 .register(registry);
     }
 
-    @Bean
-    public Counter paymentSuccessCounter(MeterRegistry registry) {
-        return Counter.builder("payment.transfers.total")
-                .description("Total successful transfers")
-                .tag("status", "SUCCESS")
-                .register(registry);
-    }
 
-    @Bean
-    public Counter paymentFailureCounter(MeterRegistry registry) {
-        return Counter.builder("payment.transfers.total")
-                .description("Total rejected/failed transfers")
-                .tag("status", "FAILED")
-                .register(registry);
-    }
 }
 
