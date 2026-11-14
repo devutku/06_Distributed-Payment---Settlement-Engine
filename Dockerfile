@@ -23,12 +23,13 @@ RUN apk add --no-cache maven && \
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup \n    && mkdir -p /app/dumps && chown appuser:appgroup /app/dumps
 USER appuser
 
 COPY --from=builder /workspace/payment-api/target/payment-api-*.jar app.jar
 
 EXPOSE 8080
 
-ENTRYPOINT ["java", "-XX:+UseG1GC", "-XX:MaxRAMPercentage=75.0", "-jar", "app.jar"]
+# On OutOfMemoryError the JVM writes a heap dump to /app/dumps (mounted to ./dumps by compose) for Eclipse MAT
+ENTRYPOINT ["java", "-XX:+UseG1GC", "-XX:MaxRAMPercentage=75.0", "-XX:+HeapDumpOnOutOfMemoryError", "-XX:HeapDumpPath=/app/dumps", "-jar", "app.jar"]
 
