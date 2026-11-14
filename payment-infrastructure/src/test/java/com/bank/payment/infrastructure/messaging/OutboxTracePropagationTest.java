@@ -91,7 +91,7 @@ class OutboxTracePropagationTest {
         when(kafka.send(anyString(), anyString(), anyString()))
                 .thenReturn(CompletableFuture.completedFuture(mock(SendResult.class)));
         when(repository.claimBatchByStatus(eq("PENDING"), any(Pageable.class))).thenReturn(List.of(pending));
-        return new KafkaTransferEventPublisher(repository, kafka, tracer);
+        return new KafkaTransferEventPublisher(repository, kafka, tracer, new com.bank.payment.infrastructure.observability.PaymentMetrics(new io.micrometer.core.instrument.simple.SimpleMeterRegistry()));
     }
 
     private static OutboxJpaEntity pendingWithTraceParent(String traceParent) {

@@ -30,6 +30,8 @@ public interface SpringDataOutboxRepository extends JpaRepository<OutboxJpaEntit
     @Query("SELECT o FROM OutboxJpaEntity o WHERE o.status = :status ORDER BY o.createdAt ASC")
     List<OutboxJpaEntity> claimBatchByStatus(@Param("status") String status, Pageable pageable);
 
+    long countByStatus(String status);
+
     List<OutboxJpaEntity> findTop50ByOrderByCreatedAtDesc();
 }
 

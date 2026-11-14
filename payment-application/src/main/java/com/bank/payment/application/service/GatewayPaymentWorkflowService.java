@@ -134,7 +134,7 @@ public class GatewayPaymentWorkflowService implements InitiateGatewayPaymentUseC
                     transfer.getId().value(),
                     transfer.getExternalReferenceId(),
                     transfer.getStatus(),
-                    "Webhook daha önce işlenmiş (Idempotent Webhook Replay)",
+                    REPLAY_MESSAGE,
                     Instant.now()
             );
         }

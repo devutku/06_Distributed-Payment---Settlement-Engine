@@ -10,7 +10,7 @@ import com.bank.payment.domain.model.account.AccountId;
 import com.bank.payment.domain.model.shared.Currency;
 import com.bank.payment.domain.model.shared.Money;
 import com.bank.payment.domain.model.transfer.IdempotencyKey;
-import io.micrometer.core.instrument.Counter;
+import com.bank.payment.infrastructure.observability.PaymentMetrics;
 import io.micrometer.core.instrument.Timer;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
@@ -31,22 +31,19 @@ public class TransferController {
     private final GetRecentTransfersQuery getRecentTransfersQuery;
     private final RequesterResolver requesterResolver;
     private final Timer paymentTransferTimer;
-    private final Counter paymentSuccessCounter;
-    private final Counter paymentFailureCounter;
+    private final PaymentMetrics metrics;
 
     public TransferController(
             InitiateTransferUseCase initiateTransferUseCase,
             GetRecentTransfersQuery getRecentTransfersQuery,
             RequesterResolver requesterResolver,
             Timer paymentTransferTimer,
-            Counter paymentSuccessCounter,
-            Counter paymentFailureCounter) {
+            PaymentMetrics metrics) {
         this.initiateTransferUseCase = initiateTransferUseCase;
         this.getRecentTransfersQuery = getRecentTransfersQuery;
         this.requesterResolver = requesterResolver;
         this.paymentTransferTimer = paymentTransferTimer;
-        this.paymentSuccessCounter = paymentSuccessCounter;
-        this.paymentFailureCounter = paymentFailureCounter;
+        this.metrics = metrics;
     }
 
     public record TransferRequest(
@@ -78,10 +75,10 @@ public class TransferController {
         return paymentTransferTimer.record(() -> {
             try {
                 TransferResultDto result = initiateTransferUseCase.execute(command);
-                paymentSuccessCounter.increment();
+                metrics.transfer(result.idempotentReplay() ? "replay" : "success");
                 return ResponseEntity.ok(result);
-            } catch (Exception ex) {
-                paymentFailureCounter.increment();
+            } catch (RuntimeException ex) {
+                metrics.transfer(PaymentMetrics.outcomeOf(ex));
                 throw ex;
             }
         });

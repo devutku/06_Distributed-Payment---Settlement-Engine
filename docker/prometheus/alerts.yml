@@ -1,0 +1,56 @@
+groups:
+  - name: mutabik
+    rules:
+      - alert: OutboxBacklogHigh
+        expr: mutabik_outbox_pending > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Outbox'ta 100'den fazla event Kafka'yı bekliyor"
+          description: "Kafka erişilemiyor veya yayımlama yavaş olabilir. Bekleyen: {{ $value }}"
+
+      - alert: OutboxPublishFailing
+        expr: increase(mutabik_outbox_publish_failures_total[5m]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kafka outbox event'lerini onaylamıyor"
+          description: "Son 5 dakikada {{ $value }} yayımlama hatası; event'ler PENDING kalıp yeniden denenecek."
+
+      - alert: DeadLetterMessages
+        expr: increase(mutabik_kafka_dlq_messages_total[10m]) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "Dead-letter kuyruğuna mesaj düştü"
+          description: "Son 10 dakikada {{ $value }} mesaj işlenemeyip transfer-events.DLT'ye gitti."
+
+      - alert: TransferErrorRateHigh
+        # Business rejections (insufficient funds, not found, ...) are separate outcomes and do not count here.
+        expr: |
+          sum(rate(mutabik_transfers_total{outcome="error"}[5m]))
+            / clamp_min(sum(rate(mutabik_transfers_total[5m])), 1e-9) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Transferlerin %5'inden fazlası sistem hatasıyla sonuçlanıyor"
+          description: "Hata oranı: {{ $value | humanizePercentage }}"
+
+      - alert: InvalidWebhookSignatureSpike
+        expr: increase(mutabik_webhooks_total{outcome="invalid_signature"}[5m]) > 10
+        labels:
+          severity: warning
+        annotations:
+          summary: "Geçersiz imzalı webhook patlaması"
+          description: "Son 5 dakikada {{ $value }} geçersiz imzalı webhook: sahte istek denemesi veya yanlış secret."
+
+      - alert: TransferLatencyP95High
+        expr: histogram_quantile(0.95, sum by (le) (rate(payment_transfer_duration_seconds_bucket[5m]))) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Transfer p95 gecikmesi 500 ms'nin üzerinde"
+          description: "p95: {{ $value | humanizeDuration }}"

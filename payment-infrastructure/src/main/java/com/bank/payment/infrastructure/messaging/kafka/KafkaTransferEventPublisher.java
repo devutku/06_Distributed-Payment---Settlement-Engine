@@ -1,6 +1,7 @@
 package com.bank.payment.infrastructure.messaging.kafka;
 
 import com.bank.payment.infrastructure.messaging.TraceParent;
+import com.bank.payment.infrastructure.observability.PaymentMetrics;
 import com.bank.payment.infrastructure.persistence.entity.OutboxJpaEntity;
 import com.bank.payment.infrastructure.persistence.repository.SpringDataOutboxRepository;
 import io.micrometer.tracing.Span;
@@ -36,14 +37,17 @@ public class KafkaTransferEventPublisher {
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final long ackWaitMs;
     private final Tracer tracer;
+    private final PaymentMetrics metrics;
 
     public KafkaTransferEventPublisher(
             SpringDataOutboxRepository outboxRepository,
             KafkaTemplate<String, String> kafkaTemplate,
-            Tracer tracer) {
+            Tracer tracer,
+            PaymentMetrics metrics) {
         this.outboxRepository = outboxRepository;
         this.kafkaTemplate = kafkaTemplate;
         this.tracer = tracer;
+        this.metrics = metrics;
         this.ackWaitMs = deliveryTimeoutMs(kafkaTemplate) + ACK_WAIT_MARGIN_MS;
     }
 
@@ -79,10 +83,12 @@ public class KafkaTransferEventPublisher {
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
                 span.error(ex);
+                metrics.outboxPublishFailure();
                 log.warn("Outbox publishing interrupted at event [{}]; will retry on next poll", event.getId());
                 return;
             } catch (ExecutionException | TimeoutException | RuntimeException ex) {
                 span.error(ex);
+                metrics.outboxPublishFailure();
                 log.error("Kafka did not acknowledge Outbox event [{}]; leaving it PENDING for retry: {}",
                         event.getId(), ex.getMessage());
                 return;

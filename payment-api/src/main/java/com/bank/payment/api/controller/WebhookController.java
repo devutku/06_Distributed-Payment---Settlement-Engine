@@ -1,6 +1,7 @@
 package com.bank.payment.api.controller;
 
 import com.bank.payment.application.port.in.ProcessPaymentWebhookUseCase;
+import com.bank.payment.infrastructure.observability.PaymentMetrics;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.http.ResponseEntity;
@@ -15,12 +16,15 @@ public class WebhookController {
 
     private final ProcessPaymentWebhookUseCase processPaymentWebhookUseCase;
     private final ObjectMapper objectMapper;
+    private final PaymentMetrics metrics;
 
     public WebhookController(
             ProcessPaymentWebhookUseCase processPaymentWebhookUseCase,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            PaymentMetrics metrics) {
         this.processPaymentWebhookUseCase = processPaymentWebhookUseCase;
         this.objectMapper = objectMapper;
+        this.metrics = metrics;
     }
 
     public record WebhookPayload(
@@ -53,9 +57,14 @@ public class WebhookController {
             );
 
             ProcessPaymentWebhookUseCase.WebhookResult result = processPaymentWebhookUseCase.processWebhook(command);
+            metrics.webhook(ProcessPaymentWebhookUseCase.REPLAY_MESSAGE.equals(result.message()) ? "replay" : "captured");
             return ResponseEntity.ok(result);
         } catch (JsonProcessingException e) {
+            metrics.webhook("rejected");
             throw new IllegalArgumentException("Geçersiz webhook payload formatı: " + e.getMessage());
+        } catch (RuntimeException ex) {
+            metrics.webhook(PaymentMetrics.outcomeOf(ex));
+            throw ex;
         }
     }
 }
